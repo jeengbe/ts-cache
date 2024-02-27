@@ -308,6 +308,8 @@ export class Cache<
    *
    * Please note that the pattern is not fully typed and can be any string.
    *
+   * @param pattern A glob-style pattern to match the keys against.
+   *
    * @example
    *
    * ```ts
