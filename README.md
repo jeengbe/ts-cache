@@ -1,4 +1,4 @@
-<h1 align="center">@jeengbe/cache</div>
+<h1 align="center">@jeengbe/cache</h1>
 <div align="center">
 
 A strongly typed caching framework that works with several cache engines.
