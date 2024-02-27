@@ -5,20 +5,66 @@ export class RedisCacheAdapter implements CacheAdapter {
   constructor(private readonly client: Redis) {}
 
   async get(key: string): Promise<string | undefined> {
+    try {
+      return await this._get(key);
+    } catch (err) {
+      throw new Error('Failed to get key from Redis.', {
+        cause: err,
+      });
+    }
+  }
+
+  private async _get(key: string): Promise<string | undefined> {
     return (await this.client.get(key)) ?? undefined;
   }
 
   async mget(keys: readonly string[]): Promise<(string | undefined)[]> {
+    try {
+      return await this._mget(keys);
+    } catch (err) {
+      throw new Error('Failed to get keys from Redis.', {
+        cause: err,
+      });
+    }
+  }
+
+  private async _mget(
+    keys: readonly string[],
+  ): Promise<(string | undefined)[]> {
     return (await this.client.mget(keys as string[])).map(
       (val) => val ?? undefined,
     );
   }
 
   async set(key: string, value: string, ttlMs: number): Promise<void> {
+    try {
+      await this._set(key, value, ttlMs);
+    } catch (err) {
+      throw new Error('Failed to set key in Redis.', {
+        cause: err,
+      });
+    }
+  }
+
+  private async _set(key: string, value: string, ttlMs: number): Promise<void> {
     await this.client.set(key, value, 'PX', ttlMs);
   }
 
   async mset(
+    keys: readonly string[],
+    values: readonly string[],
+    ttlMs: number,
+  ): Promise<void> {
+    try {
+      await this._mset(keys, values, ttlMs);
+    } catch (err) {
+      throw new Error('Failed to set keys in Redis.', {
+        cause: err,
+      });
+    }
+  }
+
+  private async _mset(
     keys: readonly string[],
     values: readonly string[],
     ttlMs: number,
@@ -40,10 +86,30 @@ export class RedisCacheAdapter implements CacheAdapter {
   }
 
   async del(key: string): Promise<void> {
+    try {
+      await this._del(key);
+    } catch (err) {
+      throw new Error('Failed to delete key from Redis.', {
+        cause: err,
+      });
+    }
+  }
+
+  private async _del(key: string): Promise<void> {
     await this.client.del(key);
   }
 
   async mdel(keys: readonly string[]): Promise<void> {
+    try {
+      await this._mdel(keys);
+    } catch (err) {
+      throw new Error('Failed to delete keys from Redis.', {
+        cause: err,
+      });
+    }
+  }
+
+  private async _mdel(keys: readonly string[]): Promise<void> {
     await this.client.del(...keys);
   }
 
@@ -52,24 +118,73 @@ export class RedisCacheAdapter implements CacheAdapter {
       match: pattern,
     });
 
+    const failedKeys: string[] = [];
+    const failedWith: Error[] = [];
+
     await new Promise<void>((resolve, reject) => {
       keys.on('data', (data: readonly string[]) => {
         if (data.length) {
-          void this.client.del(...data);
+          this.client.del(...data).catch((err: Error) => {
+            failedKeys.push(...data);
+            failedWith.push(err);
+          });
         }
       });
 
-      keys.on('error', reject);
+      keys.on('error', (err: Error) => {
+        reject(
+          new Error(
+            'Failed to delete keys from Redis. Some keys might have been deleted.',
+            {
+              cause: err,
+            },
+          ),
+        );
+
+        keys.close();
+      });
 
       keys.on('end', resolve);
     });
+
+    if (failedKeys.length) {
+      throw new AggregateError(
+        failedWith,
+        'Failed to delete keys from Redis. Some keys might have been deleted.',
+        {
+          cause: {
+            failedKeys,
+          },
+        },
+      );
+    }
   }
 
   async has(key: string): Promise<boolean> {
+    try {
+      return await this._has(key);
+    } catch (err) {
+      throw new Error('Failed to check if key exists in Redis.', {
+        cause: err,
+      });
+    }
+  }
+
+  private async _has(key: string): Promise<boolean> {
     return (await this.client.exists(key)) === 1;
   }
 
   async mhas(keys: readonly string[]): Promise<boolean> {
+    try {
+      return await this._mhas(keys);
+    } catch (err) {
+      throw new Error('Failed to check if keys exist in Redis.', {
+        cause: err,
+      });
+    }
+  }
+
+  private async _mhas(keys: readonly string[]): Promise<boolean> {
     return (await this.client.exists(...keys)) === keys.length;
   }
 }

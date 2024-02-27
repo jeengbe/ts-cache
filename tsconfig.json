@@ -1,7 +1,7 @@
 {
   "extends": "@tsconfig/node20",
   "compilerOptions": {
-    "types": ["jest"],
+    "types": ["jest", "node"],
     "sourceMap": true,
     "esModuleInterop": true,
     "declaration": true,

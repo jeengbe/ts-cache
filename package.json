@@ -1,6 +1,6 @@
 {
   "name": "@jeengbe/cache",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "A strongly typed caching framework that works with any backend.",
   "license": "MIT",
   "files": [
@@ -39,6 +39,7 @@
     "@types/jest": "^29.5.12",
     "@types/micromatch": "^4.0.6",
     "@types/ms": "^0.7.34",
+    "@types/node": "^20.11.20",
     "@typescript-eslint/eslint-plugin": "^7.1.0",
     "@typescript-eslint/parser": "^7.1.0",
     "eslint": "^8.57.0",
