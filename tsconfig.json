@@ -1,0 +1,16 @@
+{
+  "extends": "@tsconfig/node20",
+  "compilerOptions": {
+    "types": ["jest"],
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "declaration": true,
+    "declarationMap": true,
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "baseUrl": ".",
+    "rootDir": "src",
+    "outDir": "dist"
+  }
+}

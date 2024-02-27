@@ -1,0 +1,113 @@
+{
+  "root": true,
+  "parserOptions": {
+    "ecmaVersion": "latest"
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "**/*.ts"
+      ],
+      "parser": "@typescript-eslint/parser",
+      "plugins": [
+        "@typescript-eslint/eslint-plugin",
+        "prettier"
+      ],
+      "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/recommended-type-checked",
+        "plugin:@typescript-eslint/strict-type-checked",
+        "plugin:@typescript-eslint/stylistic-type-checked",
+        "plugin:prettier/recommended"
+      ],
+      "parserOptions": {
+        "project": true
+      },
+      "rules": {
+        // When implementing an interface, certain (possibly synchronously implemented) methods must
+        // return a promise, and it is more convenient to mark them as async than to return
+        // Promise.resolve()/Promise.reject() explicitly.
+        "@typescript-eslint/require-await": "off",
+        "@typescript-eslint/no-floating-promises": [
+          "error",
+          {
+            // This is a common pattern where it"s obvious that the promise is not used.
+            "ignoreIIFE": true
+          }
+        ],
+        "@typescript-eslint/no-unnecessary-condition": [
+          "error",
+          {
+            // "while(true)" is commonly used in e.g. generators. I don't understand why this is not true by default.
+            "allowConstantLoopConditions": true
+          }
+        ],
+        // We do want to error when snake case is used in order to enforce a consistent style,
+        // especially when working with systems that use other conventions. I don"t understand why this is not "error" by default.
+        "camelcase": "error",
+        "@typescript-eslint/unified-signatures": [
+          "error",
+          {
+            // If named differently, the parameters have different semantics, so this is not a problem,
+            // and union-ing the types would make the code less readable. I don"t understand why this is not true by default.
+            "ignoreDifferentlyNamedParameters": true
+          }
+        ],
+        "@typescript-eslint/no-invalid-void-type": [
+          "error",
+          {
+            // "@typescript-eslint/unbound-method" requires methods be annotated with "this: void" for safe
+            // unbound use. I don"t understand why this is not true by default.
+            "allowAsThisParameter": true
+          }
+        ],
+        // Not sure why that"s not the default, "while(true) { if() break; }" is a common pattern with which
+        // nothing is wrong that I"m aware of. If you see this and know better, let me know.
+        "no-constant-condition": [
+          "error",
+          {
+            "checkLoops": false
+          }
+        ],
+        // Stylistic choices made by me
+        "func-style": [
+          "error",
+          "declaration"
+        ]
+      },
+      "overrides": [
+        {
+          "files": [
+            "**/__tests__/**/*",
+            "**/__utils__/**/*"
+          ],
+          "rules": {
+            // Using "any" is fine in tests.
+            "@typescript-eslint/no-explicit-any": "off",
+            "@typescript-eslint/no-unsafe-call": "off",
+            "@typescript-eslint/no-unsafe-assignment": "off",
+            "@typescript-eslint/no-unsafe-member-access": "off",
+            "@typescript-eslint/no-unsafe-return": "off",
+            "@typescript-eslint/no-unsafe-argument": "off",
+            // It is very common to use "expect(mock.mockMethod).toX()" in tests, for which jest
+            // makes sure that "this" is no problem.
+            "@typescript-eslint/unbound-method": "off",
+            // Safety is less important in tests.
+            "@typescript-eslint/no-non-null-assertion": "off",
+            // When mocking a system that uses a different naming convention, it may be necessary to name things in
+            // other than camel case.
+            "camelcase": "off",
+            // For mocks, empty callbacks, etc. it"s common to have empty functions.
+            "@typescript-eslint/no-empty-function": "off",
+            // When calling `mock.calls[0][0]`, destructuring is less readable, imo.
+            "@typescript-eslint/prefer-destructuring": "off"
+          }
+        }
+      ]
+    }
+  ]
+}
