@@ -189,7 +189,7 @@ export class Cache<
     ttl: string,
   ): Promise<void>;
 
-  set<K extends keyof Entries & string>(
+  async set<K extends keyof Entries & string>(
     key: K,
     value: Entries[K],
     ttl: string | number,
@@ -197,7 +197,7 @@ export class Cache<
     const cacheKey = this.getCacheKey(key);
     const ttlMs = ttlToMs(ttl);
 
-    return this.cacheAdapter.set(cacheKey, this.serialize(value), ttlMs);
+    await this.cacheAdapter.set(cacheKey, this.serialize(value), ttlMs);
   }
 
   /**
@@ -336,7 +336,7 @@ export class Cache<
   async has<K extends keyof Entries & string>(key: K): Promise<boolean> {
     const cacheKey = this.getCacheKey(key);
 
-    return this.cacheAdapter.has(cacheKey);
+    return await this.cacheAdapter.has(cacheKey);
   }
 
   /**
@@ -359,7 +359,7 @@ export class Cache<
   ): Promise<boolean> {
     const cacheKeys = keys.map((k) => this.getCacheKey(k));
 
-    return this.cacheAdapter.mhas(cacheKeys);
+    return await this.cacheAdapter.mhas(cacheKeys);
   }
 
   /**
