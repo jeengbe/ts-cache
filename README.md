@@ -1,6 +1,13 @@
-# Cache
+<h1 align="center">@jeengbe/cache</div>
+<div align="center">
 
-This package provides a strongly typed caching framework that works with several cache engines.
+A strongly typed caching framework that works with several cache engines.
+
+[![License](https://img.shields.io/npm/l/@jeengbe/cache)](https://github.com/jeengbe/cache/blob/LICENSE.md)
+[![Version](https://img.shields.io/npm/v/@jeengbe/cache)](https://www.npmjs.com/package/@jeengbe/cache)
+![Coverage Badge](https://img.shields.io/badge/Coverage-100%25-brightgreen)
+
+</div>
 
 It provides a general `Cache` class that interacts with cache adapters, which are responsible for communicating with the cache backend (e.g. Redis). The package comes with a cache adapter for an in-memory cache that saves its content to the disk, one that does absolutely nothing (no values saved and never returns a value) and a cache adapter for Redis.
 

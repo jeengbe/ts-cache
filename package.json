@@ -1,13 +1,20 @@
 {
   "name": "@jeengbe/cache",
   "version": "1.0.0",
-  "description": "A strongly typed caching framework. Works with any backend.",
+  "description": "A strongly typed caching framework that works with any backend.",
   "license": "MIT",
   "files": [
     "dist",
     "src",
     "!**/__tests__",
     "!**/__utils__"
+  ],
+  "keywords": [
+    "cache",
+    "framework",
+    "caching",
+    "redis",
+    "in-memory"
   ],
   "main": "dist/index",
   "types": "dist/index.d.ts",
