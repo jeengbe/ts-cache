@@ -12,6 +12,7 @@ export interface CacheAdapter {
 
   del(key: string): Promise<void>;
   mdel(keys: readonly string[]): Promise<void>;
+  pdel(pattern: string): Promise<void>;
 
   has(key: string): Promise<boolean>;
   mhas(keys: readonly string[]): Promise<boolean>;

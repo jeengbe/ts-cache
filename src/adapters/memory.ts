@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import micromatch from 'micromatch';
 import * as path from 'path';
 import type { CacheAdapter } from '.';
 
@@ -8,6 +9,7 @@ export interface TTLCache<K, V> {
   delete(key: K): boolean;
   has(key: K): boolean;
   entries(): IterableIterator<[K, V]>;
+  keys(): IterableIterator<K>;
   getRemainingTTL(key: K): number | undefined;
 }
 
@@ -71,6 +73,19 @@ export class MemoryCacheAdapter implements CacheAdapter {
 
   async mdel(keys: readonly string[]): Promise<void> {
     for (const key of keys) {
+      this.cache.delete(key);
+    }
+
+    // Don't wait for the save to complete
+    void this.saveBackup();
+  }
+
+  async pdel(pattern: string): Promise<void> {
+    const keys = Array.from(this.cache.keys());
+
+    const keysToDelete = micromatch(keys, pattern);
+
+    for (const key of keysToDelete) {
       this.cache.delete(key);
     }
 

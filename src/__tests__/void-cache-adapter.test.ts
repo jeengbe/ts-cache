@@ -35,6 +35,12 @@ describe('VoidCacheAdapter', () => {
     expect(await adapter.get('foo')).toBeUndefined();
   });
 
+  test('pdel does nothing', async () => {
+    await adapter.pdel('foo');
+
+    expect(await adapter.get('foo')).toBeUndefined();
+  });
+
   test('has returns false', async () => {
     expect(await adapter.has('foo')).toBe(false);
   });

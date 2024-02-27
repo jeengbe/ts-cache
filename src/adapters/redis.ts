@@ -47,6 +47,24 @@ export class RedisCacheAdapter implements CacheAdapter {
     await this.client.del(...keys);
   }
 
+  async pdel(pattern: string): Promise<void> {
+    const keys = this.client.scanStream({
+      match: pattern,
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      keys.on('data', (data: readonly string[]) => {
+        if (data.length) {
+          void this.client.del(...data);
+        }
+      });
+
+      keys.on('error', reject);
+
+      keys.on('end', resolve);
+    });
+  }
+
   async has(key: string): Promise<boolean> {
     return (await this.client.exists(key)) === 1;
   }

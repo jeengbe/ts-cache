@@ -19,19 +19,20 @@ jest.mock('fs', () => ({
 const mockFs = fs as jest.Mocked<typeof fs>;
 const mockFsPromises = fs.promises as jest.Mocked<typeof fs.promises>;
 
-const mockCache = {
+const mockCache: jest.Mocked<TTLCache<string, string>> = {
   get: jest.fn(),
   set: jest.fn(),
   delete: jest.fn(),
   has: jest.fn(),
   entries: jest.fn(),
+  keys: jest.fn(),
   getRemainingTTL: jest.fn(),
-} as unknown as jest.Mocked<TTLCache<string, string>>;
+};
 
-const mockDiskSaver = {
+const mockDiskSaver: jest.Mocked<CacheBackupSaver> = {
   loadCacheBackup: jest.fn().mockReturnValue({}),
   saveCacheBackup: jest.fn(),
-} as unknown as jest.Mocked<CacheBackupSaver>;
+};
 
 describe('MemoryCacheAdapter', () => {
   let adapter: CacheAdapter;
@@ -94,6 +95,19 @@ describe('MemoryCacheAdapter', () => {
     expect(mockCache.delete).toHaveBeenCalledWith('foo');
   });
 
+  test('pdel', async () => {
+    mockCache.keys.mockReturnValue(
+      ['foo-1', 'foo-2', 'qux-1', 'qux-2'][Symbol.iterator](),
+    );
+
+    await adapter.pdel('foo-*');
+
+    expect(mockCache.delete).toHaveBeenCalledWith('foo-1');
+    expect(mockCache.delete).toHaveBeenCalledWith('foo-2');
+    expect(mockCache.delete).not.toHaveBeenCalledWith('qux-1');
+    expect(mockCache.delete).not.toHaveBeenCalledWith('qux-2');
+  });
+
   test('has', async () => {
     await adapter.has('foo');
 
@@ -130,6 +144,14 @@ describe('MemoryCacheAdapter', () => {
 
   it('saves the cache backup after mdel', async () => {
     await adapter.mdel(['foo', 'bar']);
+
+    expect(mockDiskSaver.saveCacheBackup).toHaveBeenCalled();
+  });
+
+  it('saves the cache backup after pdel', async () => {
+    mockCache.keys.mockReturnValue([][Symbol.iterator]());
+
+    await adapter.pdel('foo-*');
 
     expect(mockDiskSaver.saveCacheBackup).toHaveBeenCalled();
   });

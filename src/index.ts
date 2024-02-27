@@ -304,6 +304,23 @@ export class Cache<
   }
 
   /**
+   * Deletes all values from the cache whose keys match the given glob-style pattern.
+   *
+   * Please note that the pattern is not fully typed and can be any string.
+   *
+   * @example
+   *
+   * ```ts
+   * await resultCache.pdel('expensive-*');
+   * ```
+   */
+  async pdel(pattern: string): Promise<void> {
+    const cacheKey = this.getCacheKey(pattern);
+
+    await this.cacheAdapter.pdel(cacheKey);
+  }
+
+  /**
    * Checks whether there is a value for the given key in the cache.
    *
    * @example

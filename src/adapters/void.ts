@@ -25,6 +25,10 @@ export class VoidCacheAdapter implements CacheAdapter {
     // No-op
   }
 
+  async pdel(): Promise<void> {
+    // No-op
+  }
+
   async has(): Promise<boolean> {
     return false;
   }

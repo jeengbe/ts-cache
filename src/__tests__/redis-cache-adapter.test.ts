@@ -123,6 +123,27 @@ describe('RedisCacheAdapter', () => {
     });
   });
 
+  describe('pdel', () => {
+    it('deletes the values for the given pattern', async () => {
+      await redis.mset(
+        'foo-1',
+        'bar',
+        'foo-2',
+        'baz',
+        'qux-1',
+        'quux',
+        'qux-2',
+        'corge',
+      );
+
+      await adapter.pdel('foo-*');
+
+      const keys = await redis.keys('*');
+
+      expect(keys).toEqual(expect.arrayContaining(['qux-1', 'qux-2']));
+    });
+  });
+
   describe('has', () => {
     it('returns true if the key exists', async () => {
       await redis.set('foo', 'bar');

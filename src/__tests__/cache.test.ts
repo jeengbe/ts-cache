@@ -8,6 +8,7 @@ const mockCacheAdapter: jest.Mocked<CacheAdapter> = {
   mget: jest.fn(),
   del: jest.fn(),
   mdel: jest.fn(),
+  pdel: jest.fn(),
   has: jest.fn(),
   mhas: jest.fn(),
 };
@@ -319,6 +320,28 @@ describe('Cache', () => {
       expect(mockCacheAdapter.mdel).toHaveBeenCalledWith(['cache-a:foo']);
       expect(mockCacheAdapter.mdel).toHaveBeenCalledWith(['cache-b:foo']);
       expect(mockCacheAdapter.mdel).toHaveBeenCalledWith(['foo']);
+    });
+  });
+
+  describe('pdel', () => {
+    it('drops values', async () => {
+      await cache.pdel('foo-*');
+
+      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('cache:foo-*');
+    });
+
+    it('uses prefix', async () => {
+      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
+      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
+      const cacheC = new Cache(mockCacheAdapter);
+
+      await cacheA.pdel('foo-*');
+      await cacheB.pdel('foo-*');
+      await cacheC.pdel('foo-*');
+
+      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('cache-a:foo-*');
+      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('cache-b:foo-*');
+      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('foo-*');
     });
   });
 

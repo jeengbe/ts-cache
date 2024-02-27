@@ -92,6 +92,12 @@ Use `del` to delete the cached value for a single key.
 
 To delete the cached values for several keys, use `mdel`.
 
+### Delete by pattern (`pdel`)
+
+Use `pdel` to delete the cached values for all keys that match the given glob-style pattern.
+
+Please note that the pattern is not fully typed and can be any string. PRs welcome. :)
+
 ### Query whether in cache (`has`/`mhas`)
 
 Use `has` to check whether there exists a cached value for a single key.
