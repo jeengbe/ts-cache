@@ -1,7 +1,7 @@
 <h1 align="center">@jeengbe/cache</h1>
 <div align="center">
 
-A strongly typed caching framework that works with several cache engines.
+A strongly typed caching framework that works with any backend. In-memory and Redis adapters included.
 
 [![License](https://img.shields.io/npm/l/@jeengbe/cache)](https://github.com/jeengbe/cache/blob/LICENSE.md)
 [![Version](https://img.shields.io/npm/v/@jeengbe/cache)](https://www.npmjs.com/package/@jeengbe/cache)
