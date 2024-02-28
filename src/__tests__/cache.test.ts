@@ -345,6 +345,28 @@ describe('Cache', () => {
     });
   });
 
+  describe('clear', () => {
+    it('drops all values', async () => {
+      await cache.clear();
+
+      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('cache:*');
+    });
+
+    it('uses prefix', async () => {
+      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
+      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
+      const cacheC = new Cache(mockCacheAdapter);
+
+      await cacheA.clear();
+      await cacheB.clear();
+      await cacheC.clear();
+
+      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('cache-a:*');
+      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('cache-b:*');
+      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('*');
+    });
+  });
+
   describe('has', () => {
     it('returns what the adapter returns', async () => {
       mockCacheAdapter.has.mockResolvedValue(false);

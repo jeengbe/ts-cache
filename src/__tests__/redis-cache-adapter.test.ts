@@ -320,6 +320,18 @@ describe('RedisCacheAdapter', () => {
       expect(keys).toEqual(expect.arrayContaining(['qux-1', 'qux-2']));
     });
 
+    it("runs flushdb if the pattern is '*'", async () => {
+      await redis.mset('foo-1', 'bar', 'foo-2', 'baz');
+      const flushdb = jest.spyOn(redis, 'flushdb');
+
+      await adapter.pdel('*');
+
+      const keys = await redis.keys('*');
+
+      expect(flushdb).toHaveBeenCalled();
+      expect(keys).toHaveLength(0);
+    });
+
     it("collects failed keys and errors if they can't be deleted", async () => {
       jest
         .spyOn(redis, 'scanStream')

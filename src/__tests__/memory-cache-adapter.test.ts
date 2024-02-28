@@ -26,6 +26,7 @@ const mockCache: jest.Mocked<TTLCache<string, string>> = {
   has: jest.fn(),
   entries: jest.fn(),
   keys: jest.fn(),
+  clear: jest.fn(),
   getRemainingTTL: jest.fn(),
 };
 
@@ -95,17 +96,25 @@ describe('MemoryCacheAdapter', () => {
     expect(mockCache.delete).toHaveBeenCalledWith('foo');
   });
 
-  test('pdel', async () => {
-    mockCache.keys.mockReturnValue(
-      ['foo-1', 'foo-2', 'qux-1', 'qux-2'][Symbol.iterator](),
-    );
+  describe('pdel', () => {
+    it('deletes the keys that match the given pattern', async () => {
+      mockCache.keys.mockReturnValue(
+        ['foo-1', 'foo-2', 'qux-1', 'qux-2'][Symbol.iterator](),
+      );
 
-    await adapter.pdel('foo-*');
+      await adapter.pdel('foo-*');
 
-    expect(mockCache.delete).toHaveBeenCalledWith('foo-1');
-    expect(mockCache.delete).toHaveBeenCalledWith('foo-2');
-    expect(mockCache.delete).not.toHaveBeenCalledWith('qux-1');
-    expect(mockCache.delete).not.toHaveBeenCalledWith('qux-2');
+      expect(mockCache.delete).toHaveBeenCalledWith('foo-1');
+      expect(mockCache.delete).toHaveBeenCalledWith('foo-2');
+      expect(mockCache.delete).not.toHaveBeenCalledWith('qux-1');
+      expect(mockCache.delete).not.toHaveBeenCalledWith('qux-2');
+    });
+
+    it("clears the cache if the pattern is '*'", async () => {
+      await adapter.pdel('*');
+
+      expect(mockCache.clear).toHaveBeenCalled();
+    });
   });
 
   test('has', async () => {

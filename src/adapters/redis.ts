@@ -114,6 +114,18 @@ export class RedisCacheAdapter implements CacheAdapter {
   }
 
   async pdel(pattern: string): Promise<void> {
+    if (pattern === '*') {
+      try {
+        await this.client.flushdb();
+      } catch (err) {
+        throw new Error('Failed to clear Redis.', {
+          cause: err,
+        });
+      }
+
+      return;
+    }
+
     const keys = this.client.scanStream({
       match: pattern,
     });

@@ -323,6 +323,13 @@ export class Cache<
   }
 
   /**
+   * Clears the entire cache.
+   */
+  async clear(): Promise<void> {
+    await this.pdel('*');
+  }
+
+  /**
    * Checks whether there is a value for the given key in the cache.
    *
    * @example

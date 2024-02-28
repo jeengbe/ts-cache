@@ -10,6 +10,7 @@ export interface TTLCache<K, V> {
   has(key: K): boolean;
   entries(): IterableIterator<[K, V]>;
   keys(): IterableIterator<K>;
+  clear(): void;
   getRemainingTTL(key: K): number | undefined;
 }
 
@@ -81,6 +82,11 @@ export class MemoryCacheAdapter implements CacheAdapter {
   }
 
   async pdel(pattern: string): Promise<void> {
+    if (pattern === '*') {
+      this.cache.clear();
+      return;
+    }
+
     const keys = Array.from(this.cache.keys());
 
     const keysToDelete = micromatch(keys, pattern);
