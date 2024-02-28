@@ -661,7 +661,9 @@ describe('Cache', () => {
           0,
         );
 
-        await expect(valuePromise).rejects.toThrow();
+        await expect(valuePromise).rejects.toThrow(
+          'The producer did not return exactly as many results as inputs were given.',
+        );
         expect(producer).toHaveBeenCalledWith(['a']);
         expect(mockCacheAdapter.mset).not.toHaveBeenCalled();
       }
@@ -676,7 +678,9 @@ describe('Cache', () => {
           0,
         );
 
-        await expect(valuePromise).rejects.toThrow();
+        await expect(valuePromise).rejects.toThrow(
+          'The producer did not return exactly as many results as inputs were given.',
+        );
         expect(producer).toHaveBeenCalledWith(['a']);
         expect(mockCacheAdapter.mset).not.toHaveBeenCalled();
       }
