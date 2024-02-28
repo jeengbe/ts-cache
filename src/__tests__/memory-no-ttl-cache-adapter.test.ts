@@ -21,6 +21,14 @@ describe('NoTtlMemoryCacheAdapter', () => {
     jest.resetAllMocks();
   });
 
+  it('uses a Map as the cache engine by default', async () => {
+    const adapter = new NoTtlMemoryCacheAdapter();
+
+    await adapter.set('foo', 'bar');
+
+    await expect(adapter.get('foo')).resolves.toEqual('bar');
+  });
+
   test('get', async () => {
     await adapter.get('foo');
 

@@ -369,30 +369,58 @@ describe('RedisCacheAdapter', () => {
     });
 
     describe('wraps Redis errors', () => {
-      it('throws an error', async () => {
-        jest
-          .spyOn(redis, 'scanStream')
-          .mockReturnValue(new MockErrorScanStream());
+      describe('flushdb', () => {
+        describe('wraps Redis errors', () => {
+          it('throws an error', async () => {
+            jest.spyOn(redis, 'flushdb').mockRejectedValue(new Error());
 
-        await expect(adapter.pdel('foo-*')).rejects.toThrow(
-          'Failed to delete keys from Redis. Some keys might have been deleted.',
-        );
+            await expect(adapter.pdel('*')).rejects.toThrow(
+              'Failed to clear Redis.',
+            );
+          });
+
+          it('includes the original error', async () => {
+            const error = new Error();
+            jest.spyOn(redis, 'flushdb').mockRejectedValue(error);
+
+            try {
+              await adapter.pdel('*');
+            } catch (err) {
+              expect(err).toBeInstanceOf(Error);
+              assert(err instanceof Error);
+
+              expect(err.cause).toBe(error);
+            }
+          });
+        });
       });
 
-      it('includes the original error', async () => {
-        const error = new Error();
-        jest
-          .spyOn(redis, 'scanStream')
-          .mockReturnValue(new MockErrorScanStream(error));
+      describe('other', () => {
+        it('throws an error', async () => {
+          jest
+            .spyOn(redis, 'scanStream')
+            .mockReturnValue(new MockErrorScanStream());
 
-        try {
-          await adapter.pdel('foo-*');
-        } catch (err) {
-          expect(err).toBeInstanceOf(Error);
-          assert(err instanceof Error);
+          await expect(adapter.pdel('foo-*')).rejects.toThrow(
+            'Failed to delete keys from Redis. Some keys might have been deleted.',
+          );
+        });
 
-          expect(err.cause).toBe(error);
-        }
+        it('includes the original error', async () => {
+          const error = new Error();
+          jest
+            .spyOn(redis, 'scanStream')
+            .mockReturnValue(new MockErrorScanStream(error));
+
+          try {
+            await adapter.pdel('foo-*');
+          } catch (err) {
+            expect(err).toBeInstanceOf(Error);
+            assert(err instanceof Error);
+
+            expect(err.cause).toBe(error);
+          }
+        });
       });
     });
   });
