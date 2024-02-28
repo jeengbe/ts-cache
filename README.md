@@ -19,6 +19,37 @@ Values are serialized to string for storage in the cache. By default, `JSON.stri
 
 The package is published as `@jeengbe/cache`. Versions follow Semantic Versioning.
 
+## Gotta go fast, no time to read
+
+```ts
+// service/index.ts
+export interface MyService {
+  doThing(param: number): Promise<string>;
+}
+
+// service/cached.ts
+type MyServiceCacheTypes = {
+  [K in `thing-${number}`]: string;
+};
+
+export class CachedMyService implements MyService {
+  constructor(
+    private readonly cache: Cache<MyServiceCacheTypes>,
+    private readonly delegate: MyService,
+  ) {}
+
+  async doThing(param: number): Promise<string> {
+    return await this.cache.cached(`thing-${param}`, () =>
+      this.delegate.doThing(param),
+    );
+  }
+}
+
+// init.ts
+const cacheAdapter = new RedisCacheAdapter(new Redis(redisConfig));
+const cache = new Cache<MyServiceCacheTypes>(cacheAdapter);
+```
+
 ## Usage
 
 ### Create a new cache object
@@ -166,7 +197,7 @@ import { VoidCacheAdapter } from '@jeengbe/cache';
 const cacheAdapter = new VoidCacheAdapter();
 ```
 
-### In Memory
+### In memory
 
 Keeps the values in memory.
 
@@ -191,7 +222,7 @@ const cacheAdapter = new MemoryCacheAdapter(
 );
 ```
 
-### No-TTL In Memory
+### No-TTL in memory
 
 Keeps the values in memory, but ignores TTL i.e. values to not expire.
 
