@@ -520,48 +520,41 @@ export class Cache<
     const keys = data.map((d, i) => makeKey(d, i));
     const cacheKeys = keys.map((k) => this.getCacheKey(k));
 
-    const res = await this.cacheAdapter.mget(cacheKeys);
-
+    const cachedResults = await this.cacheAdapter.mget(cacheKeys);
     const toReturn = new Array<Entries[K]>(data.length);
-    const toLookUp: { data: D; returnIndex: number }[] = [];
+    const missingIndices: number[] = [];
 
-    for (let i = 0; i < res.length; i += 1) {
-      const val = res[i];
-
-      if (val === undefined) {
-        this.onMiss?.(keys[i], CacheMode.Mcached);
-
-        toLookUp.push({
-          data: data[i],
-          returnIndex: i,
-        });
+    cachedResults.forEach((result, index) => {
+      if (result === undefined) {
+        this.onMiss?.(keys[index], CacheMode.Mcached);
+        missingIndices.push(index);
       } else {
-        this.onHit?.(keys[i], CacheMode.Mcached);
-
-        toReturn[i] = this.deserialize(val) as Entries[K];
+        this.onHit?.(keys[index], CacheMode.Mcached);
+        toReturn[index] = this.deserialize(result) as Entries[K];
       }
-    }
+    });
 
-    if (!toLookUp.length) return toReturn;
+    if (!missingIndices.length) return toReturn;
 
-    const lookedUp = await producer(toLookUp.map((l) => l.data));
+    const missingData = missingIndices.map((index) => data[index]);
+    const producedValues = await producer(missingData);
 
-    if (lookedUp.length !== toLookUp.length) {
+    if (producedValues.length !== missingData.length) {
       throw new Error(
         'The producer did not return exactly as many results as inputs were given.',
       );
     }
 
-    const toStoreKeys = new Array<string>(lookedUp.length);
-    const toStoreValues = new Array<string>(lookedUp.length);
+    const toStoreKeys = new Array<string>(producedValues.length);
+    const toStoreValues = new Array<string>(producedValues.length);
 
-    for (const [i, val] of lookedUp.entries()) {
-      const { returnIndex } = toLookUp[i];
+    producedValues.forEach((value, index) => {
+      const returnIndex = missingIndices[index];
 
-      toReturn[returnIndex] = val;
-      toStoreKeys[i] = cacheKeys[returnIndex];
-      toStoreValues[i] = this.serialize(val);
-    }
+      toReturn[returnIndex] = value;
+      toStoreKeys[index] = cacheKeys[returnIndex];
+      toStoreValues[index] = this.serialize(value);
+    });
 
     const ttlMs = ttlToMs(ttl);
 

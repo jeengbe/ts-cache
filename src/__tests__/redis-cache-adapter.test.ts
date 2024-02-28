@@ -13,9 +13,10 @@ class MockScanStream extends ScanStream {
   }
 
   _read(): void {
-    for (const batch of this.batches) {
+    this.batches.forEach((batch) => {
       this.push(batch);
-    }
+    });
+
     this.push(null);
   }
 }

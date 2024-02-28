@@ -56,11 +56,11 @@ export class MemoryCacheAdapter implements CacheAdapter {
     values: readonly string[],
     ttlMs: number,
   ): Promise<void> {
-    for (const [i, key] of keys.entries()) {
-      this.cache.set(key, values[i], {
+    keys.forEach((key, index) => {
+      this.cache.set(key, values[index], {
         ttl: ttlMs,
       });
-    }
+    });
 
     // Don't wait for the save to complete
     void this.saveBackup();
@@ -74,9 +74,7 @@ export class MemoryCacheAdapter implements CacheAdapter {
   }
 
   async mdel(keys: readonly string[]): Promise<void> {
-    for (const key of keys) {
-      this.cache.delete(key);
-    }
+    keys.forEach((key) => this.cache.delete(key));
 
     // Don't wait for the save to complete
     void this.saveBackup();
@@ -92,9 +90,7 @@ export class MemoryCacheAdapter implements CacheAdapter {
 
     const keysToDelete = micromatch(keys, pattern);
 
-    for (const key of keysToDelete) {
-      this.cache.delete(key);
-    }
+    keysToDelete.forEach((key) => this.cache.delete(key));
 
     // Don't wait for the save to complete
     void this.saveBackup();
@@ -111,13 +107,13 @@ export class MemoryCacheAdapter implements CacheAdapter {
   private importCacheFromBackup(cacheBackup: CacheBackup): void {
     const now = Date.now();
 
-    for (const [key, { value, expireAtMs }] of Object.entries(cacheBackup)) {
+    Object.entries(cacheBackup).forEach(([key, { value, expireAtMs }]) => {
       if (expireAtMs > now) {
         this.cache.set(key, value, {
           ttl: expireAtMs - now,
         });
       }
-    }
+    });
   }
 
   private async saveBackup(): Promise<void> {

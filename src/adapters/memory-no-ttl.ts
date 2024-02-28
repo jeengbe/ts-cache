@@ -35,9 +35,7 @@ export class NoTtlMemoryCacheAdapter implements CacheAdapter {
     keys: readonly string[],
     values: readonly string[],
   ): Promise<void> {
-    for (const [i, key] of keys.entries()) {
-      this.cache.set(key, values[i]);
-    }
+    keys.forEach((key, index) => this.cache.set(key, values[index]));
   }
 
   async del(key: string): Promise<void> {
@@ -45,9 +43,7 @@ export class NoTtlMemoryCacheAdapter implements CacheAdapter {
   }
 
   async mdel(keys: readonly string[]): Promise<void> {
-    for (const key of keys) {
-      this.cache.delete(key);
-    }
+    keys.forEach((key) => this.cache.delete(key));
   }
 
   async pdel(pattern: string): Promise<void> {
@@ -60,9 +56,7 @@ export class NoTtlMemoryCacheAdapter implements CacheAdapter {
 
     const keysToDelete = micromatch(keys, pattern);
 
-    for (const key of keysToDelete) {
-      this.cache.delete(key);
-    }
+    keysToDelete.forEach((key) => this.cache.delete(key));
   }
 
   async has(key: string): Promise<boolean> {
