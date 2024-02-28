@@ -1,7 +1,7 @@
 import micromatch from 'micromatch';
 import type { CacheAdapter } from '.';
 
-export interface NoTTLCache<K, V> {
+export interface NoTtlCacheEngine<K, V> {
   get(key: K): V | undefined;
   set(key: K, value: V): this;
   delete(key: K): boolean;
@@ -15,7 +15,9 @@ export interface NoTTLCache<K, V> {
  * Stores data in a map without respecting TTL.
  */
 export class NoTtlMemoryCacheAdapter implements CacheAdapter {
-  constructor(private readonly cache: NoTTLCache<string, string> = new Map()) {}
+  constructor(
+    private readonly cache: NoTtlCacheEngine<string, string> = new Map(),
+  ) {}
 
   async get(key: string): Promise<string | undefined> {
     return this.cache.get(key);

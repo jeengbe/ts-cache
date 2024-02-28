@@ -4,7 +4,7 @@ import {
   CacheBackupSaver,
   DiskCacheBackupSaver,
   MemoryCacheAdapter,
-  TTLCache,
+  TtlCacheEngine,
 } from '..';
 
 jest.mock('fs', () => ({
@@ -19,7 +19,7 @@ jest.mock('fs', () => ({
 const mockFs = fs as jest.Mocked<typeof fs>;
 const mockFsPromises = fs.promises as jest.Mocked<typeof fs.promises>;
 
-const mockCache: jest.Mocked<TTLCache<string, string>> = {
+const mockCacheEngine: jest.Mocked<TtlCacheEngine<string, string>> = {
   get: jest.fn(),
   set: jest.fn(),
   delete: jest.fn(),
@@ -39,10 +39,10 @@ describe('MemoryCacheAdapter', () => {
   let adapter: CacheAdapter;
 
   beforeEach(() => {
-    mockCache.entries.mockReturnValue([][Symbol.iterator]());
+    mockCacheEngine.entries.mockReturnValue([][Symbol.iterator]());
     mockDiskSaver.loadCacheBackup.mockReturnValue({});
 
-    adapter = new MemoryCacheAdapter(mockCache, mockDiskSaver);
+    adapter = new MemoryCacheAdapter(mockCacheEngine, mockDiskSaver);
   });
 
   afterEach(() => {
@@ -52,23 +52,23 @@ describe('MemoryCacheAdapter', () => {
   test('get', async () => {
     await adapter.get('foo');
 
-    expect(mockCache.get).toHaveBeenCalledWith('foo');
+    expect(mockCacheEngine.get).toHaveBeenCalledWith('foo');
   });
 
   test('mget', async () => {
-    mockCache.get.mockReturnValueOnce('bar').mockReturnValueOnce('qux');
+    mockCacheEngine.get.mockReturnValueOnce('bar').mockReturnValueOnce('qux');
 
     const res = await adapter.mget(['foo', 'baz']);
 
-    expect(mockCache.get).toHaveBeenCalledWith('foo');
-    expect(mockCache.get).toHaveBeenCalledWith('baz');
+    expect(mockCacheEngine.get).toHaveBeenCalledWith('foo');
+    expect(mockCacheEngine.get).toHaveBeenCalledWith('baz');
     expect(res).toEqual(['bar', 'qux']);
   });
 
   test('set', async () => {
     await adapter.set('foo', 'bar', 1000);
 
-    expect(mockCache.set).toHaveBeenCalledWith('foo', 'bar', {
+    expect(mockCacheEngine.set).toHaveBeenCalledWith('foo', 'bar', {
       ttl: 1000,
     });
   });
@@ -76,10 +76,10 @@ describe('MemoryCacheAdapter', () => {
   test('mset', async () => {
     await adapter.mset(['foo', 'baz'], ['bar', 'qux'], 1000);
 
-    expect(mockCache.set).toHaveBeenCalledWith('foo', 'bar', {
+    expect(mockCacheEngine.set).toHaveBeenCalledWith('foo', 'bar', {
       ttl: 1000,
     });
-    expect(mockCache.set).toHaveBeenCalledWith('baz', 'qux', {
+    expect(mockCacheEngine.set).toHaveBeenCalledWith('baz', 'qux', {
       ttl: 1000,
     });
   });
@@ -87,49 +87,49 @@ describe('MemoryCacheAdapter', () => {
   test('del', async () => {
     await adapter.del('foo');
 
-    expect(mockCache.delete).toHaveBeenCalledWith('foo');
+    expect(mockCacheEngine.delete).toHaveBeenCalledWith('foo');
   });
 
   test('mdel', async () => {
     await adapter.mdel(['foo', 'bar']);
 
-    expect(mockCache.delete).toHaveBeenCalledWith('foo');
+    expect(mockCacheEngine.delete).toHaveBeenCalledWith('foo');
   });
 
   describe('pdel', () => {
     it('deletes the keys that match the given pattern', async () => {
-      mockCache.keys.mockReturnValue(
+      mockCacheEngine.keys.mockReturnValue(
         ['foo-1', 'foo-2', 'qux-1', 'qux-2'][Symbol.iterator](),
       );
 
       await adapter.pdel('foo-*');
 
-      expect(mockCache.delete).toHaveBeenCalledWith('foo-1');
-      expect(mockCache.delete).toHaveBeenCalledWith('foo-2');
-      expect(mockCache.delete).not.toHaveBeenCalledWith('qux-1');
-      expect(mockCache.delete).not.toHaveBeenCalledWith('qux-2');
+      expect(mockCacheEngine.delete).toHaveBeenCalledWith('foo-1');
+      expect(mockCacheEngine.delete).toHaveBeenCalledWith('foo-2');
+      expect(mockCacheEngine.delete).not.toHaveBeenCalledWith('qux-1');
+      expect(mockCacheEngine.delete).not.toHaveBeenCalledWith('qux-2');
     });
 
     it("clears the cache if the pattern is '*'", async () => {
       await adapter.pdel('*');
 
-      expect(mockCache.clear).toHaveBeenCalled();
+      expect(mockCacheEngine.clear).toHaveBeenCalled();
     });
   });
 
   test('has', async () => {
     await adapter.has('foo');
 
-    expect(mockCache.has).toHaveBeenCalledWith('foo');
+    expect(mockCacheEngine.has).toHaveBeenCalledWith('foo');
   });
 
   test('mhas', async () => {
-    mockCache.has.mockReturnValueOnce(true).mockReturnValueOnce(false);
+    mockCacheEngine.has.mockReturnValueOnce(true).mockReturnValueOnce(false);
 
     const res = await adapter.mhas(['foo', 'bar']);
 
-    expect(mockCache.has).toHaveBeenCalledWith('foo');
-    expect(mockCache.has).toHaveBeenCalledWith('bar');
+    expect(mockCacheEngine.has).toHaveBeenCalledWith('foo');
+    expect(mockCacheEngine.has).toHaveBeenCalledWith('bar');
     expect(res).toEqual(false);
   });
 
@@ -158,7 +158,7 @@ describe('MemoryCacheAdapter', () => {
   });
 
   it('saves the cache backup after pdel', async () => {
-    mockCache.keys.mockReturnValue([][Symbol.iterator]());
+    mockCacheEngine.keys.mockReturnValue([][Symbol.iterator]());
 
     await adapter.pdel('foo-*');
 
@@ -177,9 +177,9 @@ describe('MemoryCacheAdapter', () => {
     jest.useFakeTimers().setSystemTime(1000);
 
     // Need to run the constructor again because that's when the backup is loaded
-    new MemoryCacheAdapter(mockCache, mockDiskSaver);
+    new MemoryCacheAdapter(mockCacheEngine, mockDiskSaver);
 
-    expect(mockCache.set).toHaveBeenCalledWith('foo', 'bar', {
+    expect(mockCacheEngine.set).toHaveBeenCalledWith('foo', 'bar', {
       ttl: 1000,
     });
 
@@ -193,19 +193,19 @@ describe('MemoryCacheAdapter', () => {
 
     jest.useFakeTimers().setSystemTime(1000);
 
-    expect(mockCache.set).not.toHaveBeenCalled();
+    expect(mockCacheEngine.set).not.toHaveBeenCalled();
 
     jest.useRealTimers();
   });
 
   it('exports the cache correctly', async () => {
-    mockCache.entries.mockReturnValue(
+    mockCacheEngine.entries.mockReturnValue(
       [['foo', 'bar'] as [string, string], ['baz', 'qux'] as [string, string]][
         Symbol.iterator
       ](),
     );
 
-    mockCache.getRemainingTTL.mockReturnValue(1000);
+    mockCacheEngine.getRemainingTTL.mockReturnValue(1000);
 
     // Trigger save
     await adapter.set('foo', 'bar', 1000);
@@ -223,13 +223,13 @@ describe('MemoryCacheAdapter', () => {
   });
 
   it('calculates the correct expireAtMs when exporting the cache', async () => {
-    mockCache.entries.mockReturnValue(
+    mockCacheEngine.entries.mockReturnValue(
       [['foo', 'bar'] as [string, string]][Symbol.iterator](),
     );
 
     jest.useFakeTimers().setSystemTime(1000);
 
-    mockCache.getRemainingTTL.mockReturnValue(1000);
+    mockCacheEngine.getRemainingTTL.mockReturnValue(1000);
 
     // Trigger save
     await adapter.set('foo', 'bar', 1000);
@@ -245,7 +245,7 @@ describe('MemoryCacheAdapter', () => {
   });
 
   it('handles no backup saver being provided', async () => {
-    const adapter = new MemoryCacheAdapter(mockCache);
+    const adapter = new MemoryCacheAdapter(mockCacheEngine);
 
     await adapter.set('foo', 'bar', 1000);
 

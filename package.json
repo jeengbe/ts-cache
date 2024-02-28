@@ -1,7 +1,7 @@
 {
   "name": "@jeengbe/cache",
-  "version": "2.3.0",
-  "description": "A strongly typed caching framework that works with any backend.",
+  "version": "3.0.0",
+  "description": "A strongly typed caching framework that works with any engine.",
   "license": "MIT",
   "files": [
     "dist",

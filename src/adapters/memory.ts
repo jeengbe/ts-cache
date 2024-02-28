@@ -3,7 +3,7 @@ import micromatch from 'micromatch';
 import * as path from 'path';
 import type { CacheAdapter } from '.';
 
-export interface TTLCache<K, V> {
+export interface TtlCacheEngine<K, V> {
   get(key: K): V | undefined;
   set(key: K, value: V, options: { ttl: number }): this;
   delete(key: K): boolean;
@@ -11,6 +11,7 @@ export interface TTLCache<K, V> {
   entries(): IterableIterator<[K, V]>;
   keys(): IterableIterator<K>;
   clear(): void;
+  // Not camel case to match lru-cache's API
   getRemainingTTL(key: K): number | undefined;
 }
 
@@ -23,7 +24,7 @@ export interface CacheBackupSaver {
 
 export class MemoryCacheAdapter implements CacheAdapter {
   constructor(
-    private readonly cache: TTLCache<string, string>,
+    private readonly cache: TtlCacheEngine<string, string>,
     private readonly backupSaver?: CacheBackupSaver,
   ) {
     if (this.backupSaver) {

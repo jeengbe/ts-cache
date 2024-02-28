@@ -1,7 +1,7 @@
 <h1 align="center">@jeengbe/cache</h1>
 <div align="center">
 
-A strongly typed caching framework that works with any backend. In-memory and Redis adapters included.
+A strongly typed caching framework that works with any engine. In-memory and Redis adapters included.
 
 [![License](https://img.shields.io/npm/l/@jeengbe/cache)](https://github.com/jeengbe/cache/blob/LICENSE.md)
 [![Version](https://img.shields.io/npm/v/@jeengbe/cache)](https://www.npmjs.com/package/@jeengbe/cache)
@@ -9,9 +9,9 @@ A strongly typed caching framework that works with any backend. In-memory and Re
 
 </div>
 
-It provides a general `Cache` class that interacts with cache adapters, which are responsible for communicating with the cache backend (e.g. Redis). The package comes with a cache adapter for an in-memory cache that saves its content to the disk, one that does absolutely nothing (no values saved and never returns a value) and a cache adapter for Redis.
+It provides a general `Cache` class that interacts with cache adapters, which are responsible for communicating with the cache engine (e.g. Redis). The package comes with a cache adapter for an in-memory cache that saves its content to the disk, one that does absolutely nothing (no values saved and never returns a value) and a cache adapter for Redis.
 
-To use several cache instances on the same cache engine, every cache accepts a prefix parameter that is prepended to all keys before they are stored. This allows for different namespaces and versioning stored in the same cache backend.
+To use several cache instances on the same cache engine, every cache accepts a prefix parameter that is prepended to all keys before they are stored. This allows for different namespaces and versioning stored in the same cache engine.
 
 Values are serialized to string for storage in the cache. By default, `JSON.stringify`/`JSON.parse` are used, but custom serializers may be provided for serializing e.g. with Protocol Buffers.
 
@@ -173,20 +173,20 @@ Keeps the values in memory.
 The package `@isaacs/ttlcache` can be used for the cache implementation.
 
 ```ts
-import TTLCache from '@isaacs/ttlcache';
+import TtlCache from '@isaacs/ttlcache';
 import { MemoryCacheAdapter } from '@jeengbe/cache';
 
-const cacheAdapter = new MemoryCacheAdapter(new TTLCache());
+const cacheAdapter = new MemoryCacheAdapter(new TtlCache());
 ```
 
 It is also possible to back up the memory after every write operation. To do that, construct the adapter with a cache backup saver. To save the memory to disk, pass it a `DiskCacheBackupSaver` as shown:
 
 ```ts
-import TTLCache from '@isaacs/ttlcache';
+import TtlCache from '@isaacs/ttlcache';
 import { DiskCacheBackupSaver, MemoryCacheAdapter } from '@jeengbe/cache';
 
 const cacheAdapter = new MemoryCacheAdapter(
-  new TTLCache(),
+  new TtlCache(),
   new DiskCacheBackupSaver(diskCacheBackupLocation),
 );
 ```
