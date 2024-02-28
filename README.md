@@ -166,7 +166,7 @@ import { VoidCacheAdapter } from '@jeengbe/cache';
 const cacheAdapter = new VoidCacheAdapter();
 ```
 
-### Memory
+### In Memory
 
 Keeps the values in memory.
 
@@ -189,6 +189,18 @@ const cacheAdapter = new MemoryCacheAdapter(
   new TTLCache(),
   new DiskCacheBackupSaver(diskCacheBackupLocation),
 );
+```
+
+### No-TTL In Memory
+
+Keeps the values in memory, but ignores TTL i.e. values to not expire.
+
+Ideal for unit tests that involve a cache so that you don't have to mock the cache.
+
+```ts
+import { NoTtlMemoryCacheAdapter } from '@jeengbe/cache';
+
+const cacheAdapter = new NoTtlMemoryCacheAdapter();
 ```
 
 ## Notes
