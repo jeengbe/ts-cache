@@ -324,6 +324,12 @@ export class Cache<
 
   /**
    * Clears the entire cache.
+   *
+   * @example
+   *
+   * ```ts
+   * await resultCache.clear();
+   * ```
    */
   async clear(): Promise<void> {
     await this.pdel('*');
@@ -334,7 +340,7 @@ export class Cache<
    *
    * @example
    *
-   * ```
+   * ```ts
    * declare const id: string;
    *
    * const isCached = await resultCache.has(
@@ -355,7 +361,7 @@ export class Cache<
    *
    * @example
    *
-   * ```
+   * ```ts
    * declare const ids: string;
    *
    * const allCached = await resultCache.has(
@@ -456,6 +462,7 @@ export class Cache<
    * @param ttlMs For how long to keep the values in milliseconds.
    *
    * @example
+   *
    * ```ts
    * declare function expensiveBatchFunction(
    *   ids: readonly string[],
