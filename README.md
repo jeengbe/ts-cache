@@ -98,6 +98,10 @@ Use `pdel` to delete the cached values for all keys that match the given glob-st
 
 Please note that the pattern is not fully typed and can be any string. PRs welcome. :)
 
+### Clear cache (`clear`)
+
+Use `clear` to delete the cached values for all keys.
+
 ### Query whether in cache (`has`/`mhas`)
 
 Use `has` to check whether there exists a cached value for a single key.
