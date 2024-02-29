@@ -549,6 +549,12 @@ export class Cache<
     if (producedValues.length !== missingData.length) {
       throw new Error(
         'The producer did not return exactly as many results as inputs were given.',
+        {
+          cause: {
+            missingData,
+            producedValues,
+          },
+        },
       );
     }
 
