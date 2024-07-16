@@ -23,7 +23,7 @@ export interface CacheAdapter {
   mset(
     keys: readonly string[],
     values: readonly string[],
-    ttlMs: number,
+    ttlsMs: readonly number[],
   ): Promise<void>;
 
   /**

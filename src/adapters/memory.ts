@@ -54,11 +54,11 @@ export class MemoryCacheAdapter implements CacheAdapter {
   async mset(
     keys: readonly string[],
     values: readonly string[],
-    ttlMs: number,
+    ttlsMs: readonly number[],
   ): Promise<void> {
     keys.forEach((key, index) => {
       this.cache.set(key, values[index], {
-        ttl: ttlMs,
+        ttl: ttlsMs[index],
       });
     });
 

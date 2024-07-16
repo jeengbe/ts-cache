@@ -175,7 +175,7 @@ export class Cache<
   set<K extends keyof Entries & string>(
     key: K,
     value: Entries[K],
-    ttlMs: number,
+    ttlMs: number | ((value: Entries[K]) => number),
   ): Promise<void>;
 
   /**
@@ -188,16 +188,16 @@ export class Cache<
   set<K extends keyof Entries & string>(
     key: K,
     value: Entries[K],
-    ttl: string,
+    ttl: string | ((value: Entries[K]) => string),
   ): Promise<void>;
 
   async set<K extends keyof Entries & string>(
     key: K,
     value: Entries[K],
-    ttl: string | number,
+    ttl: string | number | ((value: Entries[K]) => string | number),
   ): Promise<void> {
     const cacheKey = this.getCacheKey(key);
-    const ttlMs = ttlToMs(ttl);
+    const ttlMs = ttlToMs(ttl, [value]);
 
     await this.cacheAdapter.set(cacheKey, this.serialize(value), ttlMs);
   }
@@ -224,7 +224,7 @@ export class Cache<
   mset<I extends readonly Entries[keyof Entries & string][]>(
     items: I,
     makeKey: (item: I[number], index: number) => keyof Entries & string,
-    ttlMs: number,
+    ttlMs: number | ((value: I[number], index: number) => number),
   ): Promise<void>;
 
   /**
@@ -249,21 +249,26 @@ export class Cache<
   mset<I extends readonly Entries[keyof Entries & string][]>(
     items: I,
     makeKey: (item: I[number], index: number) => keyof Entries & string,
-    ttl: string,
+    ttl: string | ((value: I[number], index: number) => string),
   ): Promise<void>;
 
   async mset<I extends readonly Entries[keyof Entries & string][]>(
     items: I,
     makeKey: (item: I[number], index: number) => keyof Entries & string,
-    ttl: string | number,
+    ttl:
+      | string
+      | number
+      | ((value: I[number], index: number) => string | number),
   ): Promise<void> {
-    const cacheKeys = items.map((i, idx) => this.getCacheKey(makeKey(i, idx)));
-    const ttlMs = ttlToMs(ttl);
+    const cacheKeys = items.map((item, i) =>
+      this.getCacheKey(makeKey(item, i)),
+    );
+    const ttlsMs = items.map((item, i) => ttlToMs(ttl, [item, i]));
 
     await this.cacheAdapter.mset(
       cacheKeys,
       items.map((i) => this.serialize(i)),
-      ttlMs,
+      ttlsMs,
     );
   }
 
@@ -402,7 +407,7 @@ export class Cache<
   cached<K extends keyof Entries & string>(
     key: K,
     producer: () => Promise<Entries[K]>,
-    ttlMs: number,
+    ttlMs: number | ((value: Entries[K]) => number),
   ): Promise<Entries[K]>;
 
   /**
@@ -428,13 +433,13 @@ export class Cache<
   cached<K extends keyof Entries & string>(
     key: K,
     producer: () => Promise<Entries[K]>,
-    ttl: string,
+    ttl: string | ((value: Entries[K]) => string),
   ): Promise<Entries[K]>;
 
   async cached<K extends keyof Entries & string>(
     key: K,
     producer: () => Promise<Entries[K]>,
-    ttl: string | number,
+    ttl: string | number | ((value: Entries[K]) => string | number),
   ): Promise<Entries[K]> {
     const cacheKey = this.getCacheKey(key);
 
@@ -443,7 +448,7 @@ export class Cache<
     if (res === undefined) {
       this.onMiss?.(key, CacheMode.Cached);
       const value = await producer();
-      const ttlMs = ttlToMs(ttl);
+      const ttlMs = ttlToMs(ttl, [value]);
 
       await this.cacheAdapter.set(cacheKey, this.serialize(value), ttlMs);
 
@@ -484,7 +489,7 @@ export class Cache<
     data: readonly D[],
     makeKey: (data: D, index: number) => K,
     producer: (data: readonly D[]) => Promise<Entries[K][]>,
-    ttlMs: number,
+    ttlMs: number | ((value: Entries[K], index: number) => number),
   ): Promise<Entries[K][]>;
 
   /**
@@ -517,14 +522,17 @@ export class Cache<
     data: readonly D[],
     makeKey: (data: D, index: number) => K,
     producer: (data: readonly D[]) => Promise<Entries[K][]>,
-    ttl: string,
+    ttl: string | ((value: Entries[K], index: number) => string),
   ): Promise<Entries[K][]>;
 
   async mcached<D, const K extends keyof Entries & string>(
     data: readonly D[],
     makeKey: (data: D, index: number) => K,
     producer: (data: readonly D[]) => Promise<Entries[K][]>,
-    ttl: string | number,
+    ttl:
+      | string
+      | number
+      | ((value: Entries[K], index: number) => string | number),
   ): Promise<Entries[K][]> {
     const keys = data.map((d, i) => makeKey(d, i));
     const cacheKeys = keys.map((k) => this.getCacheKey(k));
@@ -562,6 +570,7 @@ export class Cache<
 
     const toStoreKeys = new Array<string>(producedValues.length);
     const toStoreValues = new Array<string>(producedValues.length);
+    const toStoreTtls = new Array<number>(producedValues.length);
 
     producedValues.forEach((value, index) => {
       const returnIndex = missingIndices[index];
@@ -569,11 +578,10 @@ export class Cache<
       toReturn[returnIndex] = value;
       toStoreKeys[index] = cacheKeys[returnIndex];
       toStoreValues[index] = this.serialize(value);
+      toStoreTtls[index] = ttlToMs(ttl, [value, index]);
     });
 
-    const ttlMs = ttlToMs(ttl);
-
-    await this.cacheAdapter.mset(toStoreKeys, toStoreValues, ttlMs);
+    await this.cacheAdapter.mset(toStoreKeys, toStoreValues, toStoreTtls);
 
     return toReturn;
   }
@@ -603,7 +611,14 @@ export class Cache<
   }
 }
 
-function ttlToMs(ttl: number | string): number {
+function ttlToMs<A extends unknown[]>(
+  ttl: number | string | ((...args: A) => number | string),
+  fnArgs: A,
+): number {
+  if (typeof ttl === 'function') {
+    return ttlToMs(ttl(...fnArgs), []);
+  }
+
   if (typeof ttl === 'number') {
     return ttl;
   }

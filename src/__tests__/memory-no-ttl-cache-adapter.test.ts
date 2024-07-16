@@ -52,7 +52,7 @@ describe('NoTtlMemoryCacheAdapter', () => {
   });
 
   test('mset', async () => {
-    await adapter.mset(['foo', 'baz'], ['bar', 'qux'], 1000);
+    await adapter.mset(['foo', 'baz'], ['bar', 'qux'], [1000, 2000]);
 
     expect(mockCacheEngine.set).toHaveBeenCalledWith('foo', 'bar');
     expect(mockCacheEngine.set).toHaveBeenCalledWith('baz', 'qux');

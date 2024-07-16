@@ -53,10 +53,10 @@ export class RedisCacheAdapter implements CacheAdapter {
   async mset(
     keys: readonly string[],
     values: readonly string[],
-    ttlMs: number,
+    ttlsMs: readonly number[],
   ): Promise<void> {
     try {
-      await this._mset(keys, values, ttlMs);
+      await this._mset(keys, values, ttlsMs);
     } catch (err) {
       throw new Error('Failed to set keys in Redis.', {
         cause: err,
@@ -67,7 +67,7 @@ export class RedisCacheAdapter implements CacheAdapter {
   private async _mset(
     keys: readonly string[],
     values: readonly string[],
-    ttlMs: number,
+    ttlsMs: readonly number[],
   ): Promise<void> {
     // MSET key1 value1 key2 value2 ...
     await this.client.mset(
@@ -78,7 +78,7 @@ export class RedisCacheAdapter implements CacheAdapter {
     );
 
     const expireTransaction = keys.reduce(
-      (acc, key) => acc.pexpire(key, ttlMs),
+      (acc, key, i) => acc.pexpire(key, ttlsMs[i]),
       this.client.multi(),
     );
 

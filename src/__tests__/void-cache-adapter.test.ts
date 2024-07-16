@@ -18,7 +18,7 @@ describe('VoidCacheAdapter', () => {
   });
 
   test('mset does nothing', async () => {
-    await adapter.mset(['foo'], ['bar'], 1000);
+    await adapter.mset(['foo'], ['bar'], [1000, 2000]);
 
     expect(await adapter.mget(['foo'])).toEqual([undefined]);
   });

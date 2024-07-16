@@ -64,13 +64,13 @@ describe('MemoryCacheAdapter', () => {
   });
 
   test('mset', async () => {
-    await adapter.mset(['foo', 'baz'], ['bar', 'qux'], 1000);
+    await adapter.mset(['foo', 'baz'], ['bar', 'qux'], [1000, 2000]);
 
     expect(mockCacheEngine.set).toHaveBeenCalledWith('foo', 'bar', {
       ttl: 1000,
     });
     expect(mockCacheEngine.set).toHaveBeenCalledWith('baz', 'qux', {
-      ttl: 1000,
+      ttl: 2000,
     });
   });
 
@@ -139,7 +139,7 @@ describe('MemoryCacheAdapter', () => {
   });
 
   it('saves the cache backup after mset', async () => {
-    await adapter.mset(['foo', 'baz'], ['bar', 'qux'], 1000);
+    await adapter.mset(['foo', 'baz'], ['bar', 'qux'], [1000, 2000]);
 
     expect(mockDiskSaver.saveCacheBackup).toHaveBeenCalled();
   });

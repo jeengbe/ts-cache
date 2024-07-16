@@ -194,6 +194,26 @@ describe('Cache', () => {
       expect(ttl).toBe(1000);
     });
 
+    it("calls the ttl producer if it's a function", async () => {
+      const producer = jest.fn().mockReturnValue(1000);
+
+      await cache.set('foo', 'bar', producer);
+
+      expect(producer).toHaveBeenCalledWith('bar');
+
+      const ttl = await cache.getRemainingTtl('foo');
+
+      expect(ttl).toBe(1000);
+    });
+
+    it("converts ttl producer's string ttl to ms", async () => {
+      await cache.set('foo', 'bar', () => '1s');
+
+      const ttl = await cache.getRemainingTtl('foo');
+
+      expect(ttl).toBe(1000);
+    });
+
     it('uses prefix', async () => {
       const cacheA = new Cache(adapter, 'cache-a');
       const cacheB = new Cache(adapter, 'cache-b');
@@ -253,6 +273,49 @@ describe('Cache', () => {
 
       expect(ttlA).toBe(1000);
       expect(ttlB).toBe(1000);
+    });
+
+    it('calls the ttl producer with the value and index', async () => {
+      const producer = jest.fn().mockReturnValue(1000);
+
+      await cache.mset(['bar', 'baz'], (d) => `foo-${d}`, producer);
+
+      expect(producer).toHaveBeenCalledWith('bar', 0);
+      expect(producer).toHaveBeenCalledWith('baz', 1);
+
+      const ttlA = await cache.getRemainingTtl('foo-bar');
+      const ttlB = await cache.getRemainingTtl('foo-baz');
+
+      expect(ttlA).toBe(1000);
+      expect(ttlB).toBe(1000);
+    });
+
+    it("converts ttl producer's string ttl to ms", async () => {
+      await cache.mset(
+        ['bar', 'baz'],
+        (d) => `foo-${d}`,
+        () => '1s',
+      );
+
+      const ttlA = await cache.getRemainingTtl('foo-bar');
+      const ttlB = await cache.getRemainingTtl('foo-baz');
+
+      expect(ttlA).toBe(1000);
+      expect(ttlB).toBe(1000);
+    });
+
+    it('supports individual ttl values', async () => {
+      await cache.mset(
+        ['bar', 'baz'],
+        (d) => `foo-${d}`,
+        (_, i) => (i + 1) * 1000,
+      );
+
+      const ttlA = await cache.getRemainingTtl('foo-bar');
+      const ttlB = await cache.getRemainingTtl('foo-baz');
+
+      expect(ttlA).toBe(1000);
+      expect(ttlB).toBe(2000);
     });
 
     it('uses prefix', async () => {
@@ -603,6 +666,30 @@ describe('Cache', () => {
       expect(ttl).toBe(1000);
     });
 
+    it("calls the ttl producer if it's a function", async () => {
+      const producer = jest.fn().mockReturnValue(1000);
+
+      await cache.cached('foo', async () => 'bar', producer);
+
+      expect(producer).toHaveBeenCalledWith('bar');
+
+      const ttl = await cache.getRemainingTtl('foo');
+
+      expect(ttl).toBe(1000);
+    });
+
+    it("converts ttl producer's string ttl to ms", async () => {
+      await cache.cached(
+        'foo',
+        async () => 'bar',
+        () => '1s',
+      );
+
+      const ttl = await cache.getRemainingTtl('foo');
+
+      expect(ttl).toBe(1000);
+    });
+
     it('records a miss if there is nothing cached', async () => {
       await cache.cached('foo', async () => 'bar', 0);
 
@@ -799,6 +886,63 @@ describe('Cache', () => {
       expect(ttlA).toBe(1000);
       expect(ttlB).toBe(1000);
       expect(ttlC).toBe(1000);
+    });
+
+    it("calls the ttl producer if it's a function", async () => {
+      const producer = jest.fn().mockReturnValue(1000);
+
+      await cache.mcached(
+        ['a', 'b', 'c'],
+        (d) => `foo-${d}`,
+        async () => ['foo', 'bar', 'baz'],
+        producer,
+      );
+
+      expect(producer).toHaveBeenCalledWith('foo', 0);
+      expect(producer).toHaveBeenCalledWith('bar', 1);
+      expect(producer).toHaveBeenCalledWith('baz', 2);
+
+      const ttlA = await cache.getRemainingTtl('foo-a');
+      const ttlB = await cache.getRemainingTtl('foo-b');
+      const ttlC = await cache.getRemainingTtl('foo-c');
+
+      expect(ttlA).toBe(1000);
+      expect(ttlB).toBe(1000);
+      expect(ttlC).toBe(1000);
+    });
+
+    it("converts ttl producer's string ttl to ms", async () => {
+      await cache.mcached(
+        ['a', 'b', 'c'],
+        (d) => `foo-${d}`,
+        async () => ['foo', 'bar', 'baz'],
+        () => '1s',
+      );
+
+      const ttlA = await cache.getRemainingTtl('foo-a');
+      const ttlB = await cache.getRemainingTtl('foo-b');
+      const ttlC = await cache.getRemainingTtl('foo-c');
+
+      expect(ttlA).toBe(1000);
+      expect(ttlB).toBe(1000);
+      expect(ttlC).toBe(1000);
+    });
+
+    it('supports individual ttl values', async () => {
+      await cache.mcached(
+        ['a', 'b', 'c'],
+        (d) => `foo-${d}`,
+        async () => ['foo', 'bar', 'baz'],
+        (_, i) => (i + 1) * 1000,
+      );
+
+      const ttlA = await cache.getRemainingTtl('foo-a');
+      const ttlB = await cache.getRemainingTtl('foo-b');
+      const ttlC = await cache.getRemainingTtl('foo-c');
+
+      expect(ttlA).toBe(1000);
+      expect(ttlB).toBe(2000);
+      expect(ttlC).toBe(3000);
     });
 
     it('calls makeKey with value and index', async () => {

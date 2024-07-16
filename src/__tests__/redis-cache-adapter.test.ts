@@ -190,7 +190,7 @@ describe('RedisCacheAdapter', () => {
 
   describe('mset', () => {
     it('sets the values for the given keys', async () => {
-      await adapter.mset(['foo', 'bar'], ['baz', 'qux'], 1000);
+      await adapter.mset(['foo', 'bar'], ['baz', 'qux'], [1000, 2000]);
 
       const value = await redis.mget('foo', 'bar');
 
@@ -198,10 +198,10 @@ describe('RedisCacheAdapter', () => {
     });
 
     it('sets the values with an expiration', async () => {
-      await adapter.mset(['foo', 'bar'], ['baz', 'qux'], 1000);
+      await adapter.mset(['foo', 'bar'], ['baz', 'qux'], [1000, 2000]);
 
       expect(await redis.pttl('foo')).toBeLessThanOrEqual(1000);
-      expect(await redis.pttl('bar')).toBeLessThanOrEqual(1000);
+      expect(await redis.pttl('bar')).toBeLessThanOrEqual(2000);
     });
 
     describe('wraps Redis errors', () => {
@@ -209,7 +209,7 @@ describe('RedisCacheAdapter', () => {
         jest.spyOn(redis, 'mset').mockRejectedValue(new Error());
 
         await expect(
-          adapter.mset(['foo', 'bar'], ['baz', 'qux'], 1000),
+          adapter.mset(['foo', 'bar'], ['baz', 'qux'], [1000, 2000]),
         ).rejects.toThrow('Failed to set keys in Redis.');
       });
 
@@ -218,7 +218,7 @@ describe('RedisCacheAdapter', () => {
         jest.spyOn(redis, 'mset').mockRejectedValue(error);
 
         try {
-          await adapter.mset(['foo', 'bar'], ['baz', 'qux'], 1000);
+          await adapter.mset(['foo', 'bar'], ['baz', 'qux'], [1000, 2000]);
         } catch (err) {
           expect(err).toBeInstanceOf(Error);
           assert(err instanceof Error);
