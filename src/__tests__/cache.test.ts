@@ -1,51 +1,84 @@
-import { Cache, CacheMode } from '..';
-import type { CacheAdapter } from '../adapters';
+import {
+  Cache,
+  CacheMode,
+  CacheOptions,
+  MemoryCacheAdapter,
+  TtlCacheEngine,
+} from '..';
 
-const mockCacheAdapter: jest.Mocked<CacheAdapter> = {
-  set: jest.fn(),
-  mset: jest.fn(),
-  get: jest.fn(),
-  mget: jest.fn(),
-  del: jest.fn(),
-  mdel: jest.fn(),
-  pdel: jest.fn(),
-  has: jest.fn(),
-  mhas: jest.fn(),
-  getRemainingTtl: jest.fn(),
-};
+class MockTtlCacheEngine implements TtlCacheEngine<string, string> {
+  private readonly values = new Map<string, [value: string, ttl: number]>();
 
-const mockMetrics = {
-  onMiss: jest.fn(),
-  onHit: jest.fn(),
-};
+  get(key: string): string | undefined {
+    return this.values.get(key)?.[0];
+  }
 
-const serialize = JSON.stringify;
-const cache = new Cache(mockCacheAdapter, 'cache', mockMetrics);
+  set(key: string, value: string, options: { ttl: number }): this {
+    this.values.set(key, [value, options.ttl]);
+    return this;
+  }
 
-beforeEach(() => {
-  jest.resetAllMocks();
-});
+  delete(key: string): boolean {
+    return this.values.delete(key);
+  }
+
+  has(key: string): boolean {
+    return this.values.has(key);
+  }
+
+  entries(): IterableIterator<[string, string]> {
+    const { values } = this;
+
+    return (function* () {
+      for (const [key, [value]] of values) {
+        yield [key, value];
+      }
+    })();
+  }
+
+  keys(): IterableIterator<string> {
+    return this.values.keys();
+  }
+
+  clear(): void {
+    this.values.clear();
+  }
+
+  getRemainingTTL(key: string): number | undefined {
+    return this.values.get(key)?.[1];
+  }
+}
 
 describe('Cache', () => {
+  let adapter: MemoryCacheAdapter;
+  let mockMetrics: jest.Mocked<CacheOptions>;
+  let cache: Cache;
+
+  beforeEach(() => {
+    adapter = new MemoryCacheAdapter(new MockTtlCacheEngine());
+    mockMetrics = {
+      onMiss: jest.fn(),
+      onHit: jest.fn(),
+    };
+
+    cache = new Cache(adapter, 'cache', mockMetrics);
+  });
+
   describe('get', () => {
     it('returns undefined if there is nothing cached', async () => {
-      mockCacheAdapter.get.mockResolvedValue(undefined);
-
       const value = await cache.get('foo');
 
       expect(value).toBeUndefined();
     });
 
     it('records a miss if there is nothing cached', async () => {
-      mockCacheAdapter.get.mockResolvedValue(undefined);
-
       await cache.get('foo');
 
       expect(mockMetrics.onMiss).toHaveBeenCalledWith('foo', CacheMode.Get);
     });
 
     it('returns cached value', async () => {
-      mockCacheAdapter.get.mockResolvedValue(serialize('bar'));
+      await cache.set('foo', 'bar', 0);
 
       const value = await cache.get('foo');
 
@@ -53,7 +86,7 @@ describe('Cache', () => {
     });
 
     it('records a hit if there is something cached', async () => {
-      mockCacheAdapter.get.mockResolvedValue(serialize('bar'));
+      await cache.set('foo', 'bar', 0);
 
       await cache.get('foo');
 
@@ -61,28 +94,28 @@ describe('Cache', () => {
     });
 
     it('uses prefix', async () => {
-      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
-      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
-      const cacheC = new Cache(mockCacheAdapter);
+      const cacheA = new Cache(adapter, 'cache-a');
+      const cacheB = new Cache(adapter, 'cache-b');
+      const cacheC = new Cache(adapter);
 
-      await cacheA.get('foo');
-      await cacheB.get('foo');
-      await cacheC.get('foo');
+      await cacheA.set('foo', 'bar', 0);
+      await cacheB.set('foo', 'baz', 0);
+      await cacheC.set('foo', 'qux', 0);
 
-      expect(mockCacheAdapter.get).toHaveBeenCalledWith('cache-a:foo');
-      expect(mockCacheAdapter.get).toHaveBeenCalledWith('cache-b:foo');
-      expect(mockCacheAdapter.get).toHaveBeenCalledWith('foo');
+      const valueA = await cacheA.get('foo');
+      const valueB = await cacheB.get('foo');
+      const valueC = await cacheC.get('foo');
+
+      expect(valueA).toBe('bar');
+      expect(valueB).toBe('baz');
+      expect(valueC).toBe('qux');
     });
   });
 
   describe('mget', () => {
     it('returns mixed cached value / undefined', async () => {
-      mockCacheAdapter.mget.mockResolvedValue([
-        undefined,
-        serialize('bar'),
-        undefined,
-        serialize('baz'),
-      ]);
+      await cache.set('b', 'bar', 0);
+      await cache.set('d', 'baz', 0);
 
       const values = await cache.mget(['a', 'b', 'c', 'd']);
 
@@ -90,12 +123,8 @@ describe('Cache', () => {
     });
 
     it('records a miss if there is nothing cached', async () => {
-      mockCacheAdapter.mget.mockResolvedValue([
-        undefined,
-        serialize('bar'),
-        undefined,
-        serialize('baz'),
-      ]);
+      await cache.set('b', 'bar', 0);
+      await cache.set('d', 'baz', 0);
 
       await cache.mget(['a', 'b', 'c', 'd']);
 
@@ -104,12 +133,8 @@ describe('Cache', () => {
     });
 
     it('records a hit if there is something cached', async () => {
-      mockCacheAdapter.mget.mockResolvedValue([
-        undefined,
-        serialize('bar'),
-        undefined,
-        serialize('baz'),
-      ]);
+      await cache.set('b', 'bar', 0);
+      await cache.set('d', 'baz', 0);
 
       await cache.mget(['a', 'b', 'c', 'd']);
 
@@ -121,32 +146,26 @@ describe('Cache', () => {
       const values = await cache.mget([]);
 
       expect(values).toEqual([]);
-      expect(mockCacheAdapter.mget).not.toHaveBeenCalled();
-      expect(mockCacheAdapter.mset).not.toHaveBeenCalled();
       expect(mockMetrics.onMiss).not.toHaveBeenCalled();
       expect(mockMetrics.onHit).not.toHaveBeenCalled();
     });
 
     it('uses prefix', async () => {
-      mockCacheAdapter.mget.mockResolvedValue([]);
+      const cacheA = new Cache(adapter, 'cache-a');
+      const cacheB = new Cache(adapter, 'cache-b');
+      const cacheC = new Cache(adapter);
 
-      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
-      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
-      const cacheC = new Cache(mockCacheAdapter);
+      await cacheA.set('foo', 'bar', 0);
+      await cacheB.set('foo', 'baz', 0);
+      await cacheC.set('foo', 'qux', 0);
 
-      await cacheA.mget(['foo', 'bar']);
-      await cacheB.mget(['foo', 'bar']);
-      await cacheC.mget(['foo', 'bar']);
+      const valuesA = await cacheA.mget(['foo', 'bar']);
+      const valuesB = await cacheB.mget(['foo', 'bar']);
+      const valuesC = await cacheC.mget(['foo', 'bar']);
 
-      expect(mockCacheAdapter.mget).toHaveBeenCalledWith([
-        'cache-a:foo',
-        'cache-a:bar',
-      ]);
-      expect(mockCacheAdapter.mget).toHaveBeenCalledWith([
-        'cache-b:foo',
-        'cache-b:bar',
-      ]);
-      expect(mockCacheAdapter.mget).toHaveBeenCalledWith(['foo', 'bar']);
+      expect(valuesA).toEqual(['bar', undefined]);
+      expect(valuesB).toEqual(['baz', undefined]);
+      expect(valuesC).toEqual(['qux', undefined]);
     });
   });
 
@@ -154,57 +173,43 @@ describe('Cache', () => {
     it('sets value', async () => {
       await cache.set('foo', 'bar', 0);
 
-      expect(mockCacheAdapter.set).toHaveBeenCalledWith(
-        'cache:foo',
-        serialize('bar'),
-        0,
-      );
+      const value = await cache.get('foo');
+
+      expect(value).toBe('bar');
     });
 
     it('sets ttl', async () => {
       await cache.set('foo', 'bar', 1000);
 
-      expect(mockCacheAdapter.set).toHaveBeenCalledWith(
-        'cache:foo',
-        serialize('bar'),
-        1000,
-      );
+      const ttl = await cache.getRemainingTtl('foo');
+
+      expect(ttl).toBe(1000);
     });
 
     it('converts string ttl to ms', async () => {
       await cache.set('foo', 'bar', '1s');
 
-      expect(mockCacheAdapter.set).toHaveBeenCalledWith(
-        'cache:foo',
-        serialize('bar'),
-        1000,
-      );
+      const ttl = await cache.getRemainingTtl('foo');
+
+      expect(ttl).toBe(1000);
     });
 
     it('uses prefix', async () => {
-      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
-      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
-      const cacheC = new Cache(mockCacheAdapter);
+      const cacheA = new Cache(adapter, 'cache-a');
+      const cacheB = new Cache(adapter, 'cache-b');
+      const cacheC = new Cache(adapter);
 
       await cacheA.set('foo', 'bar', 0);
       await cacheB.set('foo', 'baz', 0);
       await cacheC.set('foo', 'qux', 0);
 
-      expect(mockCacheAdapter.set).toHaveBeenCalledWith(
-        'cache-a:foo',
-        serialize('bar'),
-        0,
-      );
-      expect(mockCacheAdapter.set).toHaveBeenCalledWith(
-        'cache-b:foo',
-        serialize('baz'),
-        0,
-      );
-      expect(mockCacheAdapter.set).toHaveBeenCalledWith(
-        'foo',
-        serialize('qux'),
-        0,
-      );
+      const valueA = await cacheA.get('foo');
+      const valueB = await cacheB.get('foo');
+      const valueC = await cacheC.get('foo');
+
+      expect(valueA).toBe('bar');
+      expect(valueB).toBe('baz');
+      expect(valueC).toBe('qux');
     });
   });
 
@@ -212,11 +217,11 @@ describe('Cache', () => {
     it('sets all values', async () => {
       await cache.mset(['bar', 'baz'], (d) => `foo-${d}`, 0);
 
-      expect(mockCacheAdapter.mset).toHaveBeenCalledWith(
-        ['cache:foo-bar', 'cache:foo-baz'],
-        [serialize('bar'), serialize('baz')],
-        0,
-      );
+      const valueA = await cache.get('foo-bar');
+      const valueB = await cache.get('foo-baz');
+
+      expect(valueA).toBe('bar');
+      expect(valueB).toBe('baz');
     });
 
     it('calls makeKey with value and index', async () => {
@@ -231,278 +236,402 @@ describe('Cache', () => {
     });
 
     it('sets ttl', async () => {
-      await cache.mset(['bar'], (d) => `foo-${d}`, 1000);
+      await cache.mset(['bar', 'baz'], (d) => `foo-${d}`, 1000);
 
-      expect(mockCacheAdapter.mset).toHaveBeenCalledWith(
-        ['cache:foo-bar'],
-        [serialize('bar')],
-        1000,
-      );
+      const ttlA = await cache.getRemainingTtl('foo-bar');
+      const ttlB = await cache.getRemainingTtl('foo-baz');
+
+      expect(ttlA).toBe(1000);
+      expect(ttlB).toBe(1000);
     });
 
     it('converts string ttl to ms', async () => {
-      await cache.mset(['bar'], (d) => `foo-${d}`, '1s');
+      await cache.mset(['bar', 'baz'], (d) => `foo-${d}`, '1s');
 
-      expect(mockCacheAdapter.mset).toHaveBeenCalledWith(
-        ['cache:foo-bar'],
-        [serialize('bar')],
-        1000,
-      );
+      const ttlA = await cache.getRemainingTtl('foo-bar');
+      const ttlB = await cache.getRemainingTtl('foo-baz');
+
+      expect(ttlA).toBe(1000);
+      expect(ttlB).toBe(1000);
     });
 
     it('uses prefix', async () => {
-      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
-      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
-      const cacheC = new Cache(mockCacheAdapter);
+      const cacheA = new Cache(adapter, 'cache-a');
+      const cacheB = new Cache(adapter, 'cache-b');
+      const cacheC = new Cache(adapter);
 
-      await cacheA.mset(['bar'], (d) => `foo-${d}`, 0);
-      await cacheB.mset(['baz'], (d) => `foo-${d}`, 0);
-      await cacheC.mset(['qux'], (d) => `foo-${d}`, 0);
+      await cacheA.mset(['bar'], () => `foo`, 0);
+      await cacheB.mset(['baz'], () => `foo`, 0);
+      await cacheC.mset(['qux'], () => `foo`, 0);
 
-      expect(mockCacheAdapter.mset).toHaveBeenCalledWith(
-        ['cache-a:foo-bar'],
-        [serialize('bar')],
-        0,
-      );
-      expect(mockCacheAdapter.mset).toHaveBeenCalledWith(
-        ['cache-b:foo-baz'],
-        [serialize('baz')],
-        0,
-      );
-      expect(mockCacheAdapter.mset).toHaveBeenCalledWith(
-        ['foo-qux'],
-        [serialize('qux')],
-        0,
-      );
+      const valueA = await cacheA.get('foo');
+      const valueB = await cacheB.get('foo');
+      const valueC = await cacheC.get('foo');
+
+      expect(valueA).toBe('bar');
+      expect(valueB).toBe('baz');
+      expect(valueC).toBe('qux');
     });
   });
 
   describe('del', () => {
     it('drops value', async () => {
+      await cache.set('foo', 'bar', 0);
+
       await cache.del('foo');
 
-      expect(mockCacheAdapter.del).toHaveBeenCalledWith('cache:foo');
+      const value = await cache.get('foo');
+
+      expect(value).toBeUndefined();
     });
 
     it('uses prefix', async () => {
-      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
-      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
-      const cacheC = new Cache(mockCacheAdapter);
+      const cacheA = new Cache(adapter, 'cache-a');
+      const cacheB = new Cache(adapter, 'cache-b');
+      const cacheC = new Cache(adapter);
+
+      await cacheA.set('foo', 'bar', 0);
+      await cacheB.set('foo', 'baz', 0);
+      await cacheC.set('foo', 'qux', 0);
 
       await cacheA.del('foo');
       await cacheB.del('foo');
       await cacheC.del('foo');
 
-      expect(mockCacheAdapter.del).toHaveBeenCalledWith('cache-a:foo');
-      expect(mockCacheAdapter.del).toHaveBeenCalledWith('cache-b:foo');
-      expect(mockCacheAdapter.del).toHaveBeenCalledWith('foo');
+      const valueA = await cacheA.get('foo');
+      const valueB = await cacheB.get('foo');
+      const valueC = await cacheC.get('foo');
+
+      expect(valueA).toBeUndefined();
+      expect(valueB).toBeUndefined();
+      expect(valueC).toBeUndefined();
     });
   });
 
   describe('mdel', () => {
     it('drops values', async () => {
+      await cache.set('foo', 'bar', 0);
+      await cache.set('bar', 'baz', 0);
+
       await cache.mdel(['foo', 'bar']);
 
-      expect(mockCacheAdapter.mdel).toHaveBeenCalledWith([
-        'cache:foo',
-        'cache:bar',
-      ]);
+      const valueA = await cache.get('foo');
+      const valueB = await cache.get('bar');
+
+      expect(valueA).toBeUndefined();
+      expect(valueB).toBeUndefined();
     });
 
     it('uses prefix', async () => {
-      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
-      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
-      const cacheC = new Cache(mockCacheAdapter);
+      const cacheA = new Cache(adapter, 'cache-a');
+      const cacheB = new Cache(adapter, 'cache-b');
+      const cacheC = new Cache(adapter);
+
+      await cacheA.set('foo', 'bar', 0);
+      await cacheB.set('foo', 'baz', 0);
+      await cacheC.set('foo', 'qux', 0);
 
       await cacheA.mdel(['foo']);
       await cacheB.mdel(['foo']);
       await cacheC.mdel(['foo']);
 
-      expect(mockCacheAdapter.mdel).toHaveBeenCalledWith(['cache-a:foo']);
-      expect(mockCacheAdapter.mdel).toHaveBeenCalledWith(['cache-b:foo']);
-      expect(mockCacheAdapter.mdel).toHaveBeenCalledWith(['foo']);
+      const valueA = await cacheA.get('foo');
+      const valueB = await cacheB.get('foo');
+      const valueC = await cacheC.get('foo');
+
+      expect(valueA).toBeUndefined();
+      expect(valueB).toBeUndefined();
+      expect(valueC).toBeUndefined();
     });
   });
 
   describe('pdel', () => {
     it('drops values', async () => {
+      await cache.set('foo-a', 'bar', 0);
+      await cache.set('foo-b', 'baz', 0);
+
       await cache.pdel('foo-*');
 
-      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('cache:foo-*');
+      const valueA = await cache.get('foo-a');
+      const valueB = await cache.get('foo-b');
+
+      expect(valueA).toBeUndefined();
+      expect(valueB).toBeUndefined();
     });
 
     it('uses prefix', async () => {
-      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
-      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
-      const cacheC = new Cache(mockCacheAdapter);
+      const cacheA = new Cache(adapter, 'cache-a');
+      const cacheB = new Cache(adapter, 'cache-b');
+      const cacheC = new Cache(adapter);
+
+      await cacheA.set('foo-a', 'bar', 0);
+      await cacheB.set('foo-a', 'baz', 0);
+      await cacheC.set('foo-a', 'qux', 0);
 
       await cacheA.pdel('foo-*');
       await cacheB.pdel('foo-*');
       await cacheC.pdel('foo-*');
 
-      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('cache-a:foo-*');
-      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('cache-b:foo-*');
-      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('foo-*');
+      const valueA = await cacheA.get('foo-a');
+      const valueB = await cacheB.get('foo-a');
+      const valueC = await cacheC.get('foo-a');
+
+      expect(valueA).toBeUndefined();
+      expect(valueB).toBeUndefined();
+      expect(valueC).toBeUndefined();
     });
   });
 
   describe('clear', () => {
     it('drops all values', async () => {
+      await cache.set('foo', 'bar', 0);
+      await cache.set('bar', 'baz', 0);
+
       await cache.clear();
 
-      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('cache:*');
+      const valueA = await cache.get('foo');
+      const valueB = await cache.get('bar');
+
+      expect(valueA).toBeUndefined();
+      expect(valueB).toBeUndefined();
     });
 
     it('uses prefix', async () => {
-      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
-      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
-      const cacheC = new Cache(mockCacheAdapter);
+      const cacheA = new Cache(adapter, 'cache-a');
+      const cacheB = new Cache(adapter, 'cache-b');
+      const cacheC = new Cache(adapter);
+
+      await cacheA.set('foo', 'bar', 0);
+      await cacheB.set('foo', 'baz', 0);
+      await cacheC.set('foo', 'qux', 0);
 
       await cacheA.clear();
-      await cacheB.clear();
+
+      {
+        const valueA = await cacheA.get('foo');
+        const valueB = await cacheB.get('foo');
+        const valueC = await cacheC.get('foo');
+
+        expect(valueA).toBeUndefined();
+        expect(valueB).toBe('baz');
+        expect(valueC).toBe('qux');
+      }
+
+      // Since C has no prefix, it also includes 'cache-b*'
       await cacheC.clear();
 
-      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('cache-a:*');
-      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('cache-b:*');
-      expect(mockCacheAdapter.pdel).toHaveBeenCalledWith('*');
+      {
+        const valueA = await cacheA.get('foo');
+        const valueB = await cacheB.get('foo');
+        const valueC = await cacheC.get('foo');
+
+        expect(valueA).toBeUndefined();
+        expect(valueB).toBeUndefined();
+        expect(valueC).toBeUndefined();
+      }
     });
   });
 
   describe('has', () => {
-    it('returns what the adapter returns', async () => {
-      mockCacheAdapter.has.mockResolvedValue(false);
+    it('returns true if the value exists', async () => {
+      await cache.set('foo', 'bar', 0);
 
+      const value = await cache.has('foo');
+
+      expect(value).toBe(true);
+    });
+
+    it('returns false if the value does not exist', async () => {
       const value = await cache.has('foo');
 
       expect(value).toBe(false);
     });
 
     it('uses prefix', async () => {
-      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
-      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
-      const cacheC = new Cache(mockCacheAdapter);
+      const cacheA = new Cache(adapter, 'cache-a');
+      const cacheB = new Cache(adapter, 'cache-b');
+      const cacheC = new Cache(adapter);
 
-      await cacheA.has('foo');
-      await cacheB.has('foo');
-      await cacheC.has('foo');
+      await cacheA.set('foo', 'bar', 0);
 
-      expect(mockCacheAdapter.has).toHaveBeenCalledWith('cache-a:foo');
-      expect(mockCacheAdapter.has).toHaveBeenCalledWith('cache-b:foo');
-      expect(mockCacheAdapter.has).toHaveBeenCalledWith('foo');
+      {
+        const valueA = await cacheA.has('foo');
+        const valueB = await cacheB.has('foo');
+        const valueC = await cacheC.has('foo');
+
+        expect(valueA).toBe(true);
+        expect(valueB).toBe(false);
+        expect(valueC).toBe(false);
+      }
+
+      await cacheB.set('foo', 'baz', 0);
+
+      {
+        const valueA = await cacheA.has('foo');
+        const valueB = await cacheB.has('foo');
+        const valueC = await cacheC.has('foo');
+
+        expect(valueA).toBe(true);
+        expect(valueB).toBe(true);
+        expect(valueC).toBe(false);
+      }
+
+      await cacheC.set('foo', 'qux', 0);
+
+      {
+        const valueA = await cacheA.has('foo');
+        const valueB = await cacheB.has('foo');
+        const valueC = await cacheC.has('foo');
+
+        expect(valueA).toBe(true);
+        expect(valueB).toBe(true);
+        expect(valueC).toBe(true);
+      }
     });
   });
 
   describe('mhas', () => {
-    it('returns what the adapter returns', async () => {
-      mockCacheAdapter.mhas.mockResolvedValue(false);
+    it('returns true if all values exist', async () => {
+      await cache.set('foo', 'bar', 0);
+      await cache.set('bar', 'baz', 0);
+
+      const value = await cache.mhas(['foo', 'bar']);
+
+      expect(value).toBe(true);
+    });
+
+    it('returns false if any value does not exist', async () => {
+      await cache.set('foo', 'bar', 0);
 
       const value = await cache.mhas(['foo', 'bar']);
 
       expect(value).toBe(false);
-      expect(mockCacheAdapter.mhas).toHaveBeenCalledWith([
-        'cache:foo',
-        'cache:bar',
-      ]);
     });
 
     it('uses prefix', async () => {
-      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
-      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
-      const cacheC = new Cache(mockCacheAdapter);
+      const cacheA = new Cache(adapter, 'cache-a');
+      const cacheB = new Cache(adapter, 'cache-b');
+      const cacheC = new Cache(adapter);
 
-      await cacheA.mhas(['foo']);
-      await cacheB.mhas(['foo']);
-      await cacheC.mhas(['foo']);
+      await cacheA.set('foo', 'bar', 0);
 
-      expect(mockCacheAdapter.mhas).toHaveBeenCalledWith(['cache-a:foo']);
-      expect(mockCacheAdapter.mhas).toHaveBeenCalledWith(['cache-b:foo']);
-      expect(mockCacheAdapter.mhas).toHaveBeenCalledWith(['foo']);
+      {
+        const valueA = await cacheA.mhas(['foo']);
+        const valueB = await cacheB.mhas(['foo']);
+        const valueC = await cacheC.mhas(['foo']);
+
+        expect(valueA).toBe(true);
+        expect(valueB).toBe(false);
+        expect(valueC).toBe(false);
+      }
+
+      await cacheB.set('foo', 'baz', 0);
+
+      {
+        const valueA = await cacheA.mhas(['foo']);
+        const valueB = await cacheB.mhas(['foo']);
+        const valueC = await cacheC.mhas(['foo']);
+
+        expect(valueA).toBe(true);
+        expect(valueB).toBe(true);
+        expect(valueC).toBe(false);
+      }
+
+      await cacheC.set('foo', 'qux', 0);
+
+      {
+        const valueA = await cacheA.mhas(['foo']);
+        const valueB = await cacheB.mhas(['foo']);
+        const valueC = await cacheC.mhas(['foo']);
+
+        expect(valueA).toBe(true);
+        expect(valueB).toBe(true);
+        expect(valueC).toBe(true);
+      }
     });
   });
 
   describe('cached', () => {
-    it('runs the producer if nothing cached', async () => {
-      mockCacheAdapter.get.mockResolvedValue(undefined);
-      const producer = jest.fn().mockResolvedValue('bar');
-
-      const value = await cache.cached('foo', producer, 0);
-
-      expect(mockCacheAdapter.set).toHaveBeenCalledWith(
-        'cache:foo',
-        serialize('bar'),
-        0,
-      );
-      expect(value).toBe('bar');
-      expect(producer).toHaveBeenCalledTimes(1);
-    });
-
-    it('records a miss if there is nothing cached', async () => {
-      mockCacheAdapter.get.mockResolvedValue(undefined);
-      const producer = jest.fn().mockResolvedValue('bar');
-
-      await cache.cached('foo', producer, 0);
-
-      expect(mockMetrics.onMiss).toHaveBeenCalledWith('foo', CacheMode.Cached);
-    });
-
     it("doesn't run the producer if the value is cached", async () => {
-      mockCacheAdapter.get.mockResolvedValue(serialize('bar'));
+      await cache.set('foo', 'bar', 0);
       const producer = jest.fn().mockResolvedValue('baz');
 
       const value = await cache.cached('foo', producer, 0);
 
-      expect(mockCacheAdapter.set).not.toHaveBeenCalled();
       expect(value).toBe('bar');
       expect(producer).toHaveBeenCalledTimes(0);
     });
 
     it('records a hit if there is something cached', async () => {
-      mockCacheAdapter.get.mockResolvedValue(serialize('bar'));
-      const producer = jest.fn().mockResolvedValue('baz');
+      await cache.set('foo', 'bar', 0);
 
-      await cache.cached('foo', producer, 0);
+      await cache.cached('foo', async () => 'baz', 0);
 
       expect(mockMetrics.onHit).toHaveBeenCalledWith('foo', CacheMode.Cached);
     });
 
-    it('uses prefix', async () => {
-      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
-      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
-      const cacheC = new Cache(mockCacheAdapter);
-
+    it('runs the producer if nothing cached', async () => {
       const producer = jest.fn().mockResolvedValue('bar');
 
-      await cacheA.cached('foo', producer, 0);
-      await cacheB.cached('foo', producer, 0);
-      await cacheC.cached('foo', producer, 0);
+      const value = await cache.cached('foo', producer, 0);
 
-      expect(producer).toHaveBeenCalledTimes(3);
-      expect(mockCacheAdapter.set).toHaveBeenCalledWith(
-        'cache-a:foo',
-        serialize('bar'),
-        0,
-      );
-      expect(mockCacheAdapter.set).toHaveBeenCalledWith(
-        'cache-b:foo',
-        serialize('bar'),
-        0,
-      );
-      expect(mockCacheAdapter.set).toHaveBeenCalledWith(
-        'foo',
-        serialize('bar'),
-        0,
-      );
+      expect(value).toBe('bar');
+      expect(producer).toHaveBeenCalledTimes(1);
+    });
+
+    it("saves the producer's result", async () => {
+      await cache.cached('foo', async () => 'bar', 0);
+
+      const value = await cache.get('foo');
+
+      expect(value).toBe('bar');
+    });
+
+    it('sets ttl', async () => {
+      await cache.cached('foo', async () => 'bar', 1000);
+
+      const ttl = await cache.getRemainingTtl('foo');
+
+      expect(ttl).toBe(1000);
+    });
+
+    it('converts string ttl to ms', async () => {
+      await cache.cached('foo', async () => 'bar', '1s');
+
+      const ttl = await cache.getRemainingTtl('foo');
+
+      expect(ttl).toBe(1000);
+    });
+
+    it('records a miss if there is nothing cached', async () => {
+      await cache.cached('foo', async () => 'bar', 0);
+
+      expect(mockMetrics.onMiss).toHaveBeenCalledWith('foo', CacheMode.Cached);
+    });
+
+    it('uses prefix', async () => {
+      const cacheA = new Cache(adapter, 'cache-a');
+      const cacheB = new Cache(adapter, 'cache-b');
+      const cacheC = new Cache(adapter);
+
+      await cacheA.cached('foo', async () => 'bar', 0);
+      await cacheB.cached('foo', async () => 'baz', 0);
+      await cacheC.cached('foo', async () => 'qux', 0);
+
+      const valueA = await cacheA.get('foo');
+      const valueB = await cacheB.get('foo');
+      const valueC = await cacheC.get('foo');
+
+      expect(valueA).toBe('bar');
+      expect(valueB).toBe('baz');
+      expect(valueC).toBe('qux');
     });
   });
 
   describe('mcached', () => {
     it('runs the producer for those items that are not cached', async () => {
-      mockCacheAdapter.mget.mockResolvedValue([
-        undefined,
-        serialize('bar'),
-        undefined,
-        serialize('qux'),
-      ]);
+      await cache.set('foo-b', 'bar', 0);
+      await cache.set('foo-d', 'qux', 0);
       const producer = jest.fn().mockResolvedValue(['foo', 'baz']);
 
       const value = await cache.mcached(
@@ -517,15 +646,15 @@ describe('Cache', () => {
     });
 
     it('records a miss for those items that are not cached', async () => {
-      mockCacheAdapter.mget.mockResolvedValue([
-        undefined,
-        serialize('bar'),
-        undefined,
-        serialize('qux'),
-      ]);
-      const producer = jest.fn().mockResolvedValue(['foo', 'baz']);
+      await cache.set('foo-b', 'bar', 0);
+      await cache.set('foo-d', 'baz', 0);
 
-      await cache.mcached(['a', 'b', 'c', 'd'], (d) => `foo-${d}`, producer, 0);
+      await cache.mcached(
+        ['a', 'b', 'c', 'd'],
+        (d) => `foo-${d}`,
+        async () => ['foo', 'baz'],
+        0,
+      );
 
       expect(mockMetrics.onMiss).toHaveBeenCalledWith(
         'foo-a',
@@ -538,15 +667,15 @@ describe('Cache', () => {
     });
 
     it('records a hit for those items that are cached', async () => {
-      mockCacheAdapter.mget.mockResolvedValue([
-        undefined,
-        serialize('bar'),
-        undefined,
-        serialize('qux'),
-      ]);
-      const producer = jest.fn().mockResolvedValue(['foo', 'baz']);
+      await cache.set('foo-b', 'bar', 0);
+      await cache.set('foo-d', 'baz', 0);
 
-      await cache.mcached(['a', 'b', 'c', 'd'], (d) => `foo-${d}`, producer, 0);
+      await cache.mcached(
+        ['a', 'b', 'c', 'd'],
+        (d) => `foo-${d}`,
+        async () => ['foo', 'baz'],
+        0,
+      );
 
       expect(mockMetrics.onHit).toHaveBeenCalledWith(
         'foo-b',
@@ -559,29 +688,27 @@ describe('Cache', () => {
     });
 
     it("doesn't run the producer if all items are cached", async () => {
-      mockCacheAdapter.mget.mockResolvedValue([
-        serialize('foo'),
-        serialize('bar'),
-        serialize('baz'),
-        serialize('qux'),
-      ]);
+      await cache.set('foo-a', 'bar', 0);
+      await cache.set('foo-b', 'baz', 0);
+      await cache.set('foo-c', 'qux', 0);
       const producer = jest.fn();
 
-      await cache.mcached(['a', 'b', 'c', 'd'], (d) => `foo-${d}`, producer, 0);
+      await cache.mcached(['a', 'b', 'c'], (d) => `foo-${d}`, producer, 0);
 
       expect(producer).not.toHaveBeenCalled();
     });
 
     it('records a hit if all items are cached', async () => {
-      mockCacheAdapter.mget.mockResolvedValue([
-        serialize('foo'),
-        serialize('bar'),
-        serialize('baz'),
-        serialize('qux'),
-      ]);
-      const producer = jest.fn();
+      await cache.set('foo-a', 'bar', 0);
+      await cache.set('foo-b', 'baz', 0);
+      await cache.set('foo-c', 'qux', 0);
 
-      await cache.mcached(['a', 'b', 'c', 'd'], (d) => `foo-${d}`, producer, 0);
+      await cache.mcached(
+        ['a', 'b', 'c'],
+        (d) => `foo-${d}`,
+        async () => [],
+        0,
+      );
 
       expect(mockMetrics.onHit).toHaveBeenCalledWith(
         'foo-a',
@@ -593,26 +720,17 @@ describe('Cache', () => {
       );
       expect(mockMetrics.onHit).toHaveBeenCalledWith(
         'foo-c',
-        CacheMode.Mcached,
-      );
-      expect(mockMetrics.onHit).toHaveBeenCalledWith(
-        'foo-d',
         CacheMode.Mcached,
       );
     });
 
     it('records a miss if no items are cached', async () => {
-      mockCacheAdapter.mget.mockResolvedValue([
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-      ]);
-      const producer = jest
-        .fn()
-        .mockResolvedValue(['foo', 'bar', 'baz', 'qux']);
-
-      await cache.mcached(['a', 'b', 'c', 'd'], (d) => `foo-${d}`, producer, 0);
+      await cache.mcached(
+        ['a', 'b', 'c', 'd'],
+        (d) => `foo-${d}`,
+        async () => ['foo', 'bar', 'baz', 'qux'],
+        0,
+      );
 
       expect(mockMetrics.onMiss).toHaveBeenCalledWith(
         'foo-a',
@@ -632,27 +750,73 @@ describe('Cache', () => {
       );
     });
 
+    it("stores the producer's result", async () => {
+      await cache.mcached(
+        ['a', 'b', 'c'],
+        (d) => `foo-${d}`,
+        async () => ['foo', 'bar', 'baz'],
+        0,
+      );
+
+      const valueA = await cache.get('foo-a');
+      const valueB = await cache.get('foo-b');
+      const valueC = await cache.get('foo-c');
+
+      expect(valueA).toBe('foo');
+      expect(valueB).toBe('bar');
+      expect(valueC).toBe('baz');
+    });
+
+    it('sets ttl', async () => {
+      await cache.mcached(
+        ['a', 'b', 'c'],
+        (d) => `foo-${d}`,
+        async () => ['foo', 'bar', 'baz'],
+        1000,
+      );
+
+      const ttlA = await cache.getRemainingTtl('foo-a');
+      const ttlB = await cache.getRemainingTtl('foo-b');
+      const ttlC = await cache.getRemainingTtl('foo-c');
+
+      expect(ttlA).toBe(1000);
+      expect(ttlB).toBe(1000);
+      expect(ttlC).toBe(1000);
+    });
+
+    it('converts string ttl to ms', async () => {
+      await cache.mcached(
+        ['a', 'b', 'c'],
+        (d) => `foo-${d}`,
+        async () => ['foo', 'bar', 'baz'],
+        '1s',
+      );
+
+      const ttlA = await cache.getRemainingTtl('foo-a');
+      const ttlB = await cache.getRemainingTtl('foo-b');
+      const ttlC = await cache.getRemainingTtl('foo-c');
+
+      expect(ttlA).toBe(1000);
+      expect(ttlB).toBe(1000);
+      expect(ttlC).toBe(1000);
+    });
+
     it('calls makeKey with value and index', async () => {
-      mockCacheAdapter.mget.mockResolvedValue([
-        serialize('foo'),
-        serialize('bar'),
-        serialize('baz'),
-        serialize('qux'),
-      ]);
+      await cache.set('foo-a', 'bar', 0);
+      await cache.set('foo-b', 'baz', 0);
+      await cache.set('foo-c', 'qux', 0);
 
-      const makeKey = jest.fn().mockReturnValue('foo');
+      const makeKey = jest.fn((data: string) => `foo-${data}`);
 
-      await cache.mcached(['a', 'b', 'c', 'd'], makeKey, async () => [], 0);
+      await cache.mcached(['a', 'b', 'c'], makeKey, async () => [], 0);
 
       expect(makeKey).toHaveBeenCalledWith('a', 0);
       expect(makeKey).toHaveBeenCalledWith('b', 1);
       expect(makeKey).toHaveBeenCalledWith('c', 2);
-      expect(makeKey).toHaveBeenCalledWith('d', 3);
     });
 
     it("throws an error if the producer doesn't return as many values as requested", async () => {
       {
-        mockCacheAdapter.mget.mockResolvedValue([undefined]);
         const producer = jest.fn().mockResolvedValue(['foo', 'baz']);
 
         const valuePromise = cache.mcached(
@@ -666,10 +830,12 @@ describe('Cache', () => {
           'The producer did not return exactly as many results as inputs were given.',
         );
         expect(producer).toHaveBeenCalledWith(['a']);
-        expect(mockCacheAdapter.mset).not.toHaveBeenCalled();
+
+        const val = await cache.get('foo-a');
+
+        expect(val).toBeUndefined();
       }
       {
-        mockCacheAdapter.mget.mockResolvedValue([undefined]);
         const producer = jest.fn().mockResolvedValue([]);
 
         const valuePromise = cache.mcached(
@@ -683,47 +849,50 @@ describe('Cache', () => {
           'The producer did not return exactly as many results as inputs were given.',
         );
         expect(producer).toHaveBeenCalledWith(['a']);
-        expect(mockCacheAdapter.mset).not.toHaveBeenCalled();
+
+        const val = await cache.get('foo-a');
+
+        expect(val).toBeUndefined();
       }
     });
 
     it('uses prefix', async () => {
-      mockCacheAdapter.mget.mockResolvedValue([undefined]);
-      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
-      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
-      const cacheC = new Cache(mockCacheAdapter);
+      const cacheA = new Cache(adapter, 'cache-a');
+      const cacheB = new Cache(adapter, 'cache-b');
+      const cacheC = new Cache(adapter);
 
-      const producer = jest.fn().mockResolvedValue(['bar']);
-
-      await cacheA.mcached(['a'], (d) => `foo-${d}`, producer, 0);
-      await cacheB.mcached(['a'], (d) => `foo-${d}`, producer, 0);
-      await cacheC.mcached(['a'], (d) => `foo-${d}`, producer, 0);
-
-      expect(producer).toHaveBeenCalledTimes(3);
-      expect(mockCacheAdapter.mget).toHaveBeenCalledWith(['cache-a:foo-a']);
-      expect(mockCacheAdapter.mget).toHaveBeenCalledWith(['cache-b:foo-a']);
-      expect(mockCacheAdapter.mget).toHaveBeenCalledWith(['foo-a']);
-      expect(mockCacheAdapter.mset).toHaveBeenCalledWith(
-        ['cache-a:foo-a'],
-        [serialize('bar')],
+      await cacheA.mcached(
+        ['a'],
+        (d) => `foo-${d}`,
+        async () => ['bar'],
         0,
       );
-      expect(mockCacheAdapter.mset).toHaveBeenCalledWith(
-        ['cache-b:foo-a'],
-        [serialize('bar')],
+      await cacheB.mcached(
+        ['a'],
+        (d) => `foo-${d}`,
+        async () => ['bar'],
         0,
       );
-      expect(mockCacheAdapter.mset).toHaveBeenCalledWith(
-        ['foo-a'],
-        [serialize('bar')],
+      await cacheC.mcached(
+        ['a'],
+        (d) => `foo-${d}`,
+        async () => ['bar'],
         0,
       );
+
+      const valueA = await cacheA.get('foo-a');
+      const valueB = await cacheB.get('foo-a');
+      const valueC = await cacheC.get('foo-a');
+
+      expect(valueA).toBe('bar');
+      expect(valueB).toBe('bar');
+      expect(valueC).toBe('bar');
     });
   });
 
   describe('getRemainingTtl', () => {
     it('returns the remaining TTL', async () => {
-      mockCacheAdapter.getRemainingTtl.mockResolvedValue(1000);
+      await cache.set('foo', 'bar', 1000);
 
       const ttl = await cache.getRemainingTtl('foo');
 
@@ -731,21 +900,25 @@ describe('Cache', () => {
     });
 
     it('uses prefix', async () => {
-      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
-      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
-      const cacheC = new Cache(mockCacheAdapter);
+      const cacheA = new Cache(adapter, 'cache-a');
+      const cacheB = new Cache(adapter, 'cache-b');
+      const cacheC = new Cache(adapter);
+
+      await cacheA.set('foo', 'bar', 1000);
+      await cacheB.set('foo', 'baz', 2000);
+      await cacheC.set('foo', 'qux', 3000);
 
       await cacheA.getRemainingTtl('foo');
       await cacheB.getRemainingTtl('foo');
       await cacheC.getRemainingTtl('foo');
 
-      expect(mockCacheAdapter.getRemainingTtl).toHaveBeenCalledWith(
-        'cache-a:foo',
-      );
-      expect(mockCacheAdapter.getRemainingTtl).toHaveBeenCalledWith(
-        'cache-b:foo',
-      );
-      expect(mockCacheAdapter.getRemainingTtl).toHaveBeenCalledWith('foo');
+      const ttlA = await cacheA.getRemainingTtl('foo');
+      const ttlB = await cacheB.getRemainingTtl('foo');
+      const ttlC = await cacheC.getRemainingTtl('foo');
+
+      expect(ttlA).toBe(1000);
+      expect(ttlB).toBe(2000);
+      expect(ttlC).toBe(3000);
     });
   });
 });

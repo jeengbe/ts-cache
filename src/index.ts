@@ -11,7 +11,9 @@ type Deserialize<Entries extends Record<string, unknown>> = (
   val: string,
 ) => Entries[keyof Entries & string];
 
-export interface CacheOptions<Entries extends Record<string, unknown>> {
+export interface CacheOptions<
+  Entries extends Record<string, unknown> = Record<string, unknown>,
+> {
   /**
    * A function to serialize the values before storing them in the cache.
    */
