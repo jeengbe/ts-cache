@@ -131,12 +131,12 @@ export class RedisCacheAdapter implements CacheAdapter {
     });
 
     const failedKeys: string[] = [];
-    const failedWith: Error[] = [];
+    const failedWith: unknown[] = [];
 
     await new Promise<void>((resolve, reject) => {
       keys.on('data', (data: readonly string[]) => {
         if (data.length) {
-          this.client.del(...data).catch((err: Error) => {
+          this.client.del(...data).catch((err: unknown) => {
             failedKeys.push(...data);
             failedWith.push(err);
           });

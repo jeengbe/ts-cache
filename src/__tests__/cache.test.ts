@@ -51,8 +51,8 @@ class MockTtlCacheEngine implements TtlCacheEngine<string, string> {
 
 describe('Cache', () => {
   let adapter: MemoryCacheAdapter;
-  let mockMetrics: jest.Mocked<CacheOptions>;
-  let cache: Cache;
+  let mockMetrics: jest.Mocked<CacheOptions<Record<string, string>>>;
+  let cache: Cache<Record<string, string>>;
 
   beforeEach(() => {
     adapter = new MemoryCacheAdapter(new MockTtlCacheEngine());
@@ -61,7 +61,7 @@ describe('Cache', () => {
       onHit: jest.fn(),
     };
 
-    cache = new Cache(adapter, 'cache', mockMetrics);
+    cache = new Cache<Record<string, string>>(adapter, 'cache', mockMetrics);
   });
 
   describe('get', () => {
