@@ -507,4 +507,52 @@ describe('RedisCacheAdapter', () => {
       });
     });
   });
+
+  describe('getRemainingTtl', () => {
+    it('returns the remaining TTL for the key', async () => {
+      await redis.set('foo', 'bar', 'PX', 1000);
+
+      const ttl = await adapter.getRemainingTtl('foo');
+
+      expect(ttl).toBeLessThanOrEqual(1000);
+    });
+
+    it("returns Infinity if the key doesn't expire", async () => {
+      await redis.set('foo', 'bar');
+
+      const ttl = await adapter.getRemainingTtl('foo');
+
+      expect(ttl).toBe(Infinity);
+    });
+
+    it('returns undefined if the key does not exist', async () => {
+      const ttl = await adapter.getRemainingTtl('foo');
+
+      expect(ttl).toBeUndefined();
+    });
+
+    describe('wraps Redis errors', () => {
+      it('throws an error', async () => {
+        jest.spyOn(redis, 'pttl').mockRejectedValue(new Error());
+
+        await expect(adapter.getRemainingTtl('foo')).rejects.toThrow(
+          'Failed to get remaining TTL from Redis.',
+        );
+      });
+
+      it('includes the original error', async () => {
+        const error = new Error();
+        jest.spyOn(redis, 'pttl').mockRejectedValue(error);
+
+        try {
+          await adapter.getRemainingTtl('foo');
+        } catch (err) {
+          expect(err).toBeInstanceOf(Error);
+          assert(err instanceof Error);
+
+          expect(err.cause).toBe(error);
+        }
+      });
+    });
+  });
 });

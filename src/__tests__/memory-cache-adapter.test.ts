@@ -1,4 +1,6 @@
+import assert from 'assert';
 import * as fs from 'fs';
+import * as path from 'path';
 import {
   CacheAdapter,
   CacheBackupSaver,
@@ -6,18 +8,6 @@ import {
   MemoryCacheAdapter,
   TtlCacheEngine,
 } from '..';
-
-jest.mock('fs', () => ({
-  existsSync: jest.fn().mockReturnValue(false),
-  mkdirSync: jest.fn(),
-  readFileSync: jest.fn(),
-  promises: {
-    writeFile: jest.fn(),
-  },
-}));
-
-const mockFs = fs as jest.Mocked<typeof fs>;
-const mockFsPromises = fs.promises as jest.Mocked<typeof fs.promises>;
 
 const mockCacheEngine: jest.Mocked<TtlCacheEngine<string, string>> = {
   get: jest.fn(),
@@ -131,6 +121,15 @@ describe('MemoryCacheAdapter', () => {
     expect(mockCacheEngine.has).toHaveBeenCalledWith('foo');
     expect(mockCacheEngine.has).toHaveBeenCalledWith('bar');
     expect(res).toEqual(false);
+  });
+
+  test('getRemainingTtl', async () => {
+    mockCacheEngine.getRemainingTTL.mockReturnValue(1000);
+
+    const res = await adapter.getRemainingTtl('foo');
+
+    expect(mockCacheEngine.getRemainingTTL).toHaveBeenCalledWith('foo');
+    expect(res).toEqual(1000);
   });
 
   it('saves the cache backup after set', async () => {
@@ -254,42 +253,38 @@ describe('MemoryCacheAdapter', () => {
 });
 
 describe('DiskCacheBackupSaver', () => {
+  let tempFile: string;
   let saver: CacheBackupSaver;
 
   beforeEach(() => {
-    saver = new DiskCacheBackupSaver('/tmp/mock-backup');
+    tempFile = `${fs.mkdtempSync('/tmp/mock-cache-backup')}/mock-backup`;
+    saver = new DiskCacheBackupSaver(tempFile);
   });
 
   afterEach(() => {
     jest.resetAllMocks();
   });
 
-  it("creates the backup file if it doesn't exist", () => {
+  it("creates the backup directory if it doesn't exist", () => {
     saver.loadCacheBackup();
 
-    expect(mockFs.mkdirSync).toHaveBeenCalledWith('/tmp', { recursive: true });
+    expect(fs.existsSync(path.dirname(tempFile))).toBe(true);
   });
 
   it('loads the backup file if it exists', () => {
-    mockFs.existsSync.mockReturnValue(true);
+    fs.writeFileSync(tempFile, '{}');
 
-    saver.loadCacheBackup();
+    const val = saver.loadCacheBackup();
 
-    expect(mockFs.readFileSync).toHaveBeenCalledWith(
-      '/tmp/mock-backup',
-      'utf8',
-    );
+    expect(val).toEqual({});
   });
 
   it('returns an empty object if the backup file does not exist', () => {
-    mockFs.existsSync.mockReturnValue(false);
-
     expect(saver.loadCacheBackup()).toEqual({});
   });
 
   it('returns an empty object if the backup file is invalid JSON', () => {
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.readFileSync.mockReturnValue('Hello There!');
+    fs.writeFileSync(tempFile, 'Hello There!');
 
     expect(saver.loadCacheBackup()).toEqual({});
   });
@@ -297,22 +292,26 @@ describe('DiskCacheBackupSaver', () => {
   it('saves the cache backup', async () => {
     await saver.saveCacheBackup({ foo: { value: 'bar', expireAtMs: 1000 } });
 
-    expect(fs.promises.writeFile).toHaveBeenCalledWith(
-      '/tmp/mock-backup',
+    expect(fs.readFileSync(tempFile, 'utf8')).toEqual(
       '{"foo":{"value":"bar","expireAtMs":1000}}',
-      expect.anything(),
     );
   });
 
   it("doesn't save the cache backup if it's already saving", async () => {
     let resolveSaveA: () => void;
 
+    const writeSpy = jest.spyOn(fs.promises, 'writeFile');
+
     // Capture the resolve function for save A
-    mockFsPromises.writeFile.mockReturnValueOnce(
-      new Promise((res) => {
+    writeSpy.mockImplementationOnce((file, data) => {
+      assert(typeof file === 'string');
+      assert(typeof data === 'string');
+      fs.writeFileSync(file, data);
+
+      return new Promise<void>((res) => {
         resolveSaveA = res;
-      }),
-    );
+      });
+    });
 
     // Save twice
     const saveAPromise = saver.saveCacheBackup({
@@ -329,11 +328,8 @@ describe('DiskCacheBackupSaver', () => {
     await saveBPromise;
 
     // Save B should have been ignored
-    expect(fs.promises.writeFile).toHaveBeenCalledTimes(1);
-    expect(fs.promises.writeFile).toHaveBeenCalledWith(
-      '/tmp/mock-backup',
+    expect(fs.readFileSync(tempFile, 'utf8')).toEqual(
       '{"foo":{"value":"bar","expireAtMs":1000}}',
-      expect.anything(),
     );
   });
 });

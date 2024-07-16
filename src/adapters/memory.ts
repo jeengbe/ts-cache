@@ -104,6 +104,10 @@ export class MemoryCacheAdapter implements CacheAdapter {
     return keys.every((k) => this.cache.has(k));
   }
 
+  async getRemainingTtl(key: string): Promise<number | undefined> {
+    return this.cache.getRemainingTTL(key);
+  }
+
   private importCacheFromBackup(cacheBackup: CacheBackup): void {
     const now = Date.now();
 

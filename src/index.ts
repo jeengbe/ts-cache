@@ -577,6 +577,19 @@ export class Cache<
   }
 
   /**
+   * Gets the remaining time to live of a key in milliseconds or `undefined` if the key does not exist or has expired.
+   *
+   * May return `Infinity` if the key exists but has no TTL set.
+   */
+  async getRemainingTtl<K extends keyof Entries & string>(
+    key: K,
+  ): Promise<number | undefined> {
+    const cacheKey = this.getCacheKey(key);
+
+    return await this.cacheAdapter.getRemainingTtl(cacheKey);
+  }
+
+  /**
    * Computes the cache key for a given key.
    *
    * The "key" is the user's input, and "cache key" is what is actually used to store the value.

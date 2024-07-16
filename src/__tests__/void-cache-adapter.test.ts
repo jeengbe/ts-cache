@@ -48,4 +48,8 @@ describe('VoidCacheAdapter', () => {
   test('mhas returns false', async () => {
     expect(await adapter.mhas(['foo'])).toBe(false);
   });
+
+  test('getRemainingTtl returns undefined', async () => {
+    expect(await adapter.getRemainingTtl('foo')).toBeUndefined();
+  });
 });

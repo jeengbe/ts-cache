@@ -106,4 +106,22 @@ describe('NoTtlMemoryCacheAdapter', () => {
     expect(mockCacheEngine.has).toHaveBeenCalledWith('bar');
     expect(res).toEqual(false);
   });
+
+  describe('getRemainingTtl', () => {
+    it('returns `Infinity` if the key exists', async () => {
+      mockCacheEngine.has.mockReturnValue(true);
+
+      const res = await adapter.getRemainingTtl('foo');
+
+      expect(res).toEqual(Infinity);
+    });
+
+    it("returns `undefined` if the key doesn't exist", async () => {
+      mockCacheEngine.has.mockReturnValue(false);
+
+      const res = await adapter.getRemainingTtl('foo');
+
+      expect(res).toBeUndefined();
+    });
+  });
 });

@@ -50,6 +50,11 @@ export interface CacheAdapter {
    * Checks if all given keys exist.
    */
   mhas(keys: readonly string[]): Promise<boolean>;
+
+  /**
+   * Gets the remaining time to live of a key in milliseconds or undefined if the key does not exist.
+   */
+  getRemainingTtl(key: string): Promise<number | undefined>;
 }
 
 export * from './memory';

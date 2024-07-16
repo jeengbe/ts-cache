@@ -11,6 +11,7 @@ const mockCacheAdapter: jest.Mocked<CacheAdapter> = {
   pdel: jest.fn(),
   has: jest.fn(),
   mhas: jest.fn(),
+  getRemainingTtl: jest.fn(),
 };
 
 const mockMetrics = {
@@ -717,6 +718,34 @@ describe('Cache', () => {
         [serialize('bar')],
         0,
       );
+    });
+  });
+
+  describe('getRemainingTtl', () => {
+    it('returns the remaining TTL', async () => {
+      mockCacheAdapter.getRemainingTtl.mockResolvedValue(1000);
+
+      const ttl = await cache.getRemainingTtl('foo');
+
+      expect(ttl).toBe(1000);
+    });
+
+    it('uses prefix', async () => {
+      const cacheA = new Cache(mockCacheAdapter, 'cache-a');
+      const cacheB = new Cache(mockCacheAdapter, 'cache-b');
+      const cacheC = new Cache(mockCacheAdapter);
+
+      await cacheA.getRemainingTtl('foo');
+      await cacheB.getRemainingTtl('foo');
+      await cacheC.getRemainingTtl('foo');
+
+      expect(mockCacheAdapter.getRemainingTtl).toHaveBeenCalledWith(
+        'cache-a:foo',
+      );
+      expect(mockCacheAdapter.getRemainingTtl).toHaveBeenCalledWith(
+        'cache-b:foo',
+      );
+      expect(mockCacheAdapter.getRemainingTtl).toHaveBeenCalledWith('foo');
     });
   });
 });

@@ -36,4 +36,8 @@ export class VoidCacheAdapter implements CacheAdapter {
   async mhas(): Promise<boolean> {
     return false;
   }
+
+  async getRemainingTtl(): Promise<number | undefined> {
+    return undefined;
+  }
 }

@@ -199,4 +199,28 @@ export class RedisCacheAdapter implements CacheAdapter {
   private async _mhas(keys: readonly string[]): Promise<boolean> {
     return (await this.client.exists(...keys)) === keys.length;
   }
+
+  async getRemainingTtl(key: string): Promise<number | undefined> {
+    try {
+      return await this._getRemainingTtl(key);
+    } catch (err) {
+      throw new Error('Failed to get remaining TTL from Redis.', {
+        cause: err,
+      });
+    }
+  }
+
+  private async _getRemainingTtl(key: string): Promise<number | undefined> {
+    const res = await this.client.pttl(key);
+
+    if (res === -2) {
+      return undefined;
+    }
+
+    if (res === -1) {
+      return Infinity;
+    }
+
+    return res;
+  }
 }

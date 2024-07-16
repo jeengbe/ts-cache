@@ -13,6 +13,8 @@ export interface NoTtlCacheEngine<K, V> {
 
 /**
  * Stores data in a map without respecting TTL.
+ *
+ * Note: Returns `Infinity` for `getRemainingTtl` if the key exists.
  */
 export class NoTtlMemoryCacheAdapter implements CacheAdapter {
   constructor(
@@ -65,5 +67,9 @@ export class NoTtlMemoryCacheAdapter implements CacheAdapter {
 
   async mhas(keys: readonly string[]): Promise<boolean> {
     return keys.every((k) => this.cache.has(k));
+  }
+
+  async getRemainingTtl(key: string): Promise<number | undefined> {
+    return this.cache.has(key) ? Infinity : undefined;
   }
 }
