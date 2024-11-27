@@ -5,10 +5,12 @@ export * from './adapters';
 
 type Serialize<Entries extends Record<string, unknown>> = (
   val: Entries[keyof Entries & string],
+  key: keyof Entries & string,
 ) => string;
 
 type Deserialize<Entries extends Record<string, unknown>> = (
   val: string,
+  key: keyof Entries & string,
 ) => Entries[keyof Entries & string];
 
 export interface CacheOptions<
@@ -118,7 +120,7 @@ export class Cache<
     }
 
     this.onHit?.(key, CacheMode.Get);
-    return this.deserialize(res) as Entries[K];
+    return this.deserialize(res, key) as Entries[K];
   }
 
   /**
@@ -159,7 +161,7 @@ export class Cache<
       }
 
       this.onHit?.(keys[i], CacheMode.Mget);
-      return this.deserialize(r);
+      return this.deserialize(r, keys[i]);
     }) as {
       -readonly [I in keyof K]: Entries[K[I]] | undefined;
     };
@@ -199,7 +201,7 @@ export class Cache<
     const cacheKey = this.getCacheKey(key);
     const ttlMs = ttlToMs(ttl, [value]);
 
-    await this.cacheAdapter.set(cacheKey, this.serialize(value), ttlMs);
+    await this.cacheAdapter.set(cacheKey, this.serialize(value, key), ttlMs);
   }
 
   /**
@@ -260,14 +262,14 @@ export class Cache<
       | number
       | ((value: I[number], index: number) => string | number),
   ): Promise<void> {
-    const cacheKeys = items.map((item, i) =>
-      this.getCacheKey(makeKey(item, i)),
-    );
+    const keys = items.map((item, i) => makeKey(item, i));
+    const cacheKeys = keys.map((k) => this.getCacheKey(k));
+
     const ttlsMs = items.map((item, i) => ttlToMs(ttl, [item, i]));
 
     await this.cacheAdapter.mset(
       cacheKeys,
-      items.map((i) => this.serialize(i)),
+      items.map((item, i) => this.serialize(item, keys[i])),
       ttlsMs,
     );
   }
@@ -450,13 +452,13 @@ export class Cache<
       const value = await producer();
       const ttlMs = ttlToMs(ttl, [value]);
 
-      await this.cacheAdapter.set(cacheKey, this.serialize(value), ttlMs);
+      await this.cacheAdapter.set(cacheKey, this.serialize(value, key), ttlMs);
 
       return value;
     }
 
     this.onHit?.(key, CacheMode.Cached);
-    return this.deserialize(res) as Entries[K];
+    return this.deserialize(res, key) as Entries[K];
   }
 
   /**
@@ -534,20 +536,20 @@ export class Cache<
       | number
       | ((value: Entries[K], index: number) => string | number),
   ): Promise<Entries[K][]> {
-    const keys = data.map((d, i) => makeKey(d, i));
+    const keys = data.map((data, i) => makeKey(data, i));
     const cacheKeys = keys.map((k) => this.getCacheKey(k));
 
     const cachedResults = await this.cacheAdapter.mget(cacheKeys);
     const toReturn = new Array<Entries[K]>(data.length);
     const missingIndices: number[] = [];
 
-    cachedResults.forEach((result, index) => {
+    cachedResults.forEach((result, i) => {
       if (result === undefined) {
-        this.onMiss?.(keys[index], CacheMode.Mcached);
-        missingIndices.push(index);
+        this.onMiss?.(keys[i], CacheMode.Mcached);
+        missingIndices.push(i);
       } else {
-        this.onHit?.(keys[index], CacheMode.Mcached);
-        toReturn[index] = this.deserialize(result) as Entries[K];
+        this.onHit?.(keys[i], CacheMode.Mcached);
+        toReturn[i] = this.deserialize(result, keys[i]) as Entries[K];
       }
     });
 
@@ -577,7 +579,7 @@ export class Cache<
 
       toReturn[returnIndex] = value;
       toStoreKeys[index] = cacheKeys[returnIndex];
-      toStoreValues[index] = this.serialize(value);
+      toStoreValues[index] = this.serialize(value, keys[returnIndex]);
       toStoreTtls[index] = ttlToMs(ttl, [value, index]);
     });
 
