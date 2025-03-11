@@ -303,6 +303,6 @@ The `safeJsonSerialize` function performs runtime checks to validate whether val
 
 - Circular references
 - Non-serializable values like `undefined`, or `Promise`
-- `Date`, since `JSON.parse(JSON.stringify(new Date))` returns a string instead
+- `Date` (`JSON.parse(JSON.stringify(new Date()))` returns a string instead of a `Date` instance)
 
 For a detailed overview of supported and unsupported values, refer to the unit tests for `safeJsonSerialize`. These tests provide a comprehensive list of scenarios and behaviours.

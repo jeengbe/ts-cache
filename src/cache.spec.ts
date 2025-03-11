@@ -1,5 +1,5 @@
 import { MemoryCacheAdapter, TtlCacheEngine } from '@/adapters';
-import { Cache, CacheMode, CacheOptions } from './cache';
+import { Cache, CacheOptions, Operation } from './cache';
 
 class MockTtlCacheEngine implements TtlCacheEngine<string, string> {
   private readonly values = new Map<string, [value: string, ttl: number]>();
@@ -71,7 +71,7 @@ describe('Cache', () => {
     it('records a miss if there is nothing cached', async () => {
       await cache.get('foo');
 
-      expect(mockOptions.onMiss).toHaveBeenCalledWith('foo', CacheMode.Get);
+      expect(mockOptions.onMiss).toHaveBeenCalledWith('foo', Operation.Get);
     });
 
     it('returns cached value', async () => {
@@ -87,7 +87,7 @@ describe('Cache', () => {
 
       await cache.get('foo');
 
-      expect(mockOptions.onHit).toHaveBeenCalledWith('foo', CacheMode.Get);
+      expect(mockOptions.onHit).toHaveBeenCalledWith('foo', Operation.Get);
     });
 
     it("deserializes the value if it's cached", async () => {
@@ -133,8 +133,8 @@ describe('Cache', () => {
 
       await cache.mget(['a', 'b', 'c', 'd']);
 
-      expect(mockOptions.onMiss).toHaveBeenCalledWith('a', CacheMode.Mget);
-      expect(mockOptions.onMiss).toHaveBeenCalledWith('c', CacheMode.Mget);
+      expect(mockOptions.onMiss).toHaveBeenCalledWith('a', Operation.Mget);
+      expect(mockOptions.onMiss).toHaveBeenCalledWith('c', Operation.Mget);
     });
 
     it('records a hit if there is something cached', async () => {
@@ -143,8 +143,8 @@ describe('Cache', () => {
 
       await cache.mget(['a', 'b', 'c', 'd']);
 
-      expect(mockOptions.onHit).toHaveBeenCalledWith('b', CacheMode.Mget);
-      expect(mockOptions.onHit).toHaveBeenCalledWith('d', CacheMode.Mget);
+      expect(mockOptions.onHit).toHaveBeenCalledWith('b', Operation.Mget);
+      expect(mockOptions.onHit).toHaveBeenCalledWith('d', Operation.Mget);
     });
 
     it("deserializes the value if it's cached", async () => {
@@ -658,7 +658,7 @@ describe('Cache', () => {
 
       await cache.cached('foo', async () => 'baz', 0);
 
-      expect(mockOptions.onHit).toHaveBeenCalledWith('foo', CacheMode.Cached);
+      expect(mockOptions.onHit).toHaveBeenCalledWith('foo', Operation.Cached);
     });
 
     it("deserializes the value if it's cached", async () => {
@@ -729,7 +729,7 @@ describe('Cache', () => {
     it('records a miss if there is nothing cached', async () => {
       await cache.cached('foo', async () => 'bar', 0);
 
-      expect(mockOptions.onMiss).toHaveBeenCalledWith('foo', CacheMode.Cached);
+      expect(mockOptions.onMiss).toHaveBeenCalledWith('foo', Operation.Cached);
     });
 
     it('serializes the value before storing it', async () => {
@@ -787,11 +787,11 @@ describe('Cache', () => {
 
       expect(mockOptions.onMiss).toHaveBeenCalledWith(
         'foo-a',
-        CacheMode.Mcached,
+        Operation.Mcached,
       );
       expect(mockOptions.onMiss).toHaveBeenCalledWith(
         'foo-c',
-        CacheMode.Mcached,
+        Operation.Mcached,
       );
     });
 
@@ -808,11 +808,11 @@ describe('Cache', () => {
 
       expect(mockOptions.onHit).toHaveBeenCalledWith(
         'foo-b',
-        CacheMode.Mcached,
+        Operation.Mcached,
       );
       expect(mockOptions.onHit).toHaveBeenCalledWith(
         'foo-d',
-        CacheMode.Mcached,
+        Operation.Mcached,
       );
     });
 
@@ -871,15 +871,15 @@ describe('Cache', () => {
 
       expect(mockOptions.onHit).toHaveBeenCalledWith(
         'foo-a',
-        CacheMode.Mcached,
+        Operation.Mcached,
       );
       expect(mockOptions.onHit).toHaveBeenCalledWith(
         'foo-b',
-        CacheMode.Mcached,
+        Operation.Mcached,
       );
       expect(mockOptions.onHit).toHaveBeenCalledWith(
         'foo-c',
-        CacheMode.Mcached,
+        Operation.Mcached,
       );
     });
 
@@ -893,19 +893,19 @@ describe('Cache', () => {
 
       expect(mockOptions.onMiss).toHaveBeenCalledWith(
         'foo-a',
-        CacheMode.Mcached,
+        Operation.Mcached,
       );
       expect(mockOptions.onMiss).toHaveBeenCalledWith(
         'foo-b',
-        CacheMode.Mcached,
+        Operation.Mcached,
       );
       expect(mockOptions.onMiss).toHaveBeenCalledWith(
         'foo-c',
-        CacheMode.Mcached,
+        Operation.Mcached,
       );
       expect(mockOptions.onMiss).toHaveBeenCalledWith(
         'foo-d',
-        CacheMode.Mcached,
+        Operation.Mcached,
       );
     });
 

@@ -32,25 +32,45 @@ export interface CacheOptions<
    * A callback that is called when a value is not found in the cache.
    *
    * @param key The requested key.
-   * @param mode The operation that was performed.
+   * @param operation The operation that was performed.
    */
-  onMiss?: (this: void, key: keyof Entries & string, mode: CacheMode) => void;
+  onMiss?: (
+    this: void,
+    key: keyof Entries & string,
+    operation: Operation,
+  ) => void;
 
   /**
    * A callback that is called when a value is found in the cache.
    *
    * @param key The requested key.
-   * @param mode The operation that was performed.
+   * @param operation The operation that was performed.
    */
-  onHit?: (this: void, key: keyof Entries & string, mode: CacheMode) => void;
+  onHit?: (
+    this: void,
+    key: keyof Entries & string,
+    operation: Operation,
+  ) => void;
 }
 
-export enum CacheMode {
+export enum Operation {
   Get,
   Mget,
   Cached,
   Mcached,
 }
+
+/**
+ * Deprecated alias for {@link Operation}.
+ *
+ * @deprecated Use {@link Operation} instead.
+ */
+export const CacheMode = Operation;
+
+/**
+ * @deprecated Use {@link Operation} instead.
+ */
+export type CacheMode = Operation;
 
 /**
  * Context for all documentation comments:
@@ -72,12 +92,12 @@ export class Cache<
   private readonly onMiss?: (
     this: void,
     key: keyof Entries & string,
-    mode: CacheMode,
+    operation: Operation,
   ) => void;
   private readonly onHit?: (
     this: void,
     key: keyof Entries & string,
-    mode: CacheMode,
+    operation: Operation,
   ) => void;
 
   constructor(
@@ -120,11 +140,11 @@ export class Cache<
     const res = await this.cacheAdapter.get(cacheKey);
 
     if (res === undefined) {
-      this.onMiss?.(key, CacheMode.Get);
+      this.onMiss?.(key, Operation.Get);
       return undefined;
     }
 
-    this.onHit?.(key, CacheMode.Get);
+    this.onHit?.(key, Operation.Get);
     return this.deserialize(res, key) as Entries[K];
   }
 
@@ -161,11 +181,11 @@ export class Cache<
 
     return res.map((r, i) => {
       if (r === undefined) {
-        this.onMiss?.(keys[i], CacheMode.Mget);
+        this.onMiss?.(keys[i], Operation.Mget);
         return undefined;
       }
 
-      this.onHit?.(keys[i], CacheMode.Mget);
+      this.onHit?.(keys[i], Operation.Mget);
       return this.deserialize(r, keys[i]);
     }) as {
       -readonly [I in keyof K]: Entries[K[I]] | undefined;
@@ -473,7 +493,7 @@ export class Cache<
     const res = await this.cacheAdapter.get(cacheKey);
 
     if (res === undefined) {
-      this.onMiss?.(key, CacheMode.Cached);
+      this.onMiss?.(key, Operation.Cached);
       const value = await producer();
       const ttlMs = ttlToMs(ttl, [value]);
 
@@ -482,7 +502,7 @@ export class Cache<
       return value;
     }
 
-    this.onHit?.(key, CacheMode.Cached);
+    this.onHit?.(key, Operation.Cached);
     return this.deserialize(res, key) as Entries[K];
   }
 
@@ -572,10 +592,10 @@ export class Cache<
 
     cachedResults.forEach((result, i) => {
       if (result === undefined) {
-        this.onMiss?.(keys[i], CacheMode.Mcached);
+        this.onMiss?.(keys[i], Operation.Mcached);
         missingIndices.push(i);
       } else {
-        this.onHit?.(keys[i], CacheMode.Mcached);
+        this.onHit?.(keys[i], Operation.Mcached);
         toReturn[i] = this.deserialize(result, keys[i]) as Entries[K];
       }
     });
