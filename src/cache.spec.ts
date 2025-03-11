@@ -222,7 +222,7 @@ describe('Cache', () => {
     });
 
     it("converts ttl producer's string ttl to ms", async () => {
-      await cache.set('foo', 'bar', () => '1s');
+      await cache.set('foo', 'bar', () => '1s' as const);
 
       const ttl = await cache.getRemainingTtl('foo');
 
@@ -315,7 +315,7 @@ describe('Cache', () => {
       await cache.mset(
         ['bar', 'baz'],
         (d) => `foo-${d}`,
-        () => '1s',
+        () => '1s' as const,
       );
 
       const ttlA = await cache.getRemainingTtl('foo-bar');
@@ -718,7 +718,7 @@ describe('Cache', () => {
       await cache.cached(
         'foo',
         async () => 'bar',
-        () => '1s',
+        () => '1s' as const,
       );
 
       const ttl = await cache.getRemainingTtl('foo');
@@ -988,7 +988,7 @@ describe('Cache', () => {
         ['a', 'b', 'c'],
         (d) => `foo-${d}`,
         async () => ['foo', 'bar', 'baz'],
-        () => '1s',
+        () => '1s' as const,
       );
 
       const ttlA = await cache.getRemainingTtl('foo-a');

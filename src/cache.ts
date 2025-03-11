@@ -1,5 +1,7 @@
-import ms from 'ms';
+import ms, { StringValue } from 'ms';
 import { type CacheAdapter } from './adapters';
+
+export type TtlString = StringValue;
 
 type Serialize<Entries extends Record<string, unknown>> = (
   val: Entries[keyof Entries & string],
@@ -183,18 +185,18 @@ export class Cache<
    *
    * Use {@link Cache.cached} if you want to read a value from cache and only calculate+store it if it's not set.
    *
-   * @param ttl For how long to keep the value. Accepts any duration format that [`ms`](https://www.npmjs.com/package/ms) supports.
+   * @param ttl For how long to keep the value.
    */
   set<K extends keyof Entries & string>(
     key: K,
     value: Entries[K],
-    ttl: string | ((value: Entries[K]) => string),
+    ttl: TtlString | ((value: Entries[K]) => TtlString),
   ): Promise<void>;
 
   async set<K extends keyof Entries & string>(
     key: K,
     value: Entries[K],
-    ttl: string | number | ((value: Entries[K]) => string | number),
+    ttl: TtlString | number | ((value: Entries[K]) => TtlString | number),
   ): Promise<void> {
     const cacheKey = this.getCacheKey(key);
     const ttlMs = ttlToMs(ttl, [value]);
@@ -232,7 +234,7 @@ export class Cache<
    *
    * Use {@link Cache.mcached} if you want to read many values from the cache and only compute values+save them for those not in the cache.
    *
-   * @param ttl For how long to keep the values. Accepts any duration format that [`ms`](https://www.npmjs.com/package/ms) supports.
+   * @param ttl For how long to keep the values.
    *
    * @example
    *
@@ -249,16 +251,16 @@ export class Cache<
   mset<I extends readonly Entries[keyof Entries & string][]>(
     items: I,
     makeKey: (item: I[number], index: number) => keyof Entries & string,
-    ttl: string | ((value: I[number], index: number) => string),
+    ttl: TtlString | ((value: I[number], index: number) => TtlString),
   ): Promise<void>;
 
   async mset<I extends readonly Entries[keyof Entries & string][]>(
     items: I,
     makeKey: (item: I[number], index: number) => keyof Entries & string,
     ttl:
-      | string
+      | TtlString
       | number
-      | ((value: I[number], index: number) => string | number),
+      | ((value: I[number], index: number) => TtlString | number),
   ): Promise<void> {
     const keys = items.map((item, i) => makeKey(item, i));
     const cacheKeys = keys.map((k) => this.getCacheKey(k));
@@ -414,7 +416,7 @@ export class Cache<
    * Wraps a function call in a cache and only executes it if the
    * value is not in the cache.
    *
-   * @param ttl For how long to keep the value. Accepts any duration format that [`ms`](https://www.npmjs.com/package/ms) supports.
+   * @param ttl For how long to keep the value.
    *
    * @example
    *
@@ -433,13 +435,13 @@ export class Cache<
   cached<K extends keyof Entries & string>(
     key: K,
     producer: () => Promise<Entries[K]>,
-    ttl: string | ((value: Entries[K]) => string),
+    ttl: TtlString | ((value: Entries[K]) => TtlString),
   ): Promise<Entries[K]>;
 
   async cached<K extends keyof Entries & string>(
     key: K,
     producer: () => Promise<Entries[K]>,
-    ttl: string | number | ((value: Entries[K]) => string | number),
+    ttl: TtlString | number | ((value: Entries[K]) => TtlString | number),
   ): Promise<Entries[K]> {
     const cacheKey = this.getCacheKey(key);
 
@@ -499,7 +501,7 @@ export class Cache<
    * @param producer Takes an array of input items that are not cached and returns an array of results. The output array must have
    * the same length as the input, and items are mapped by their array indices.
    *
-   * @param ttl For how long to keep the values. Accepts any duration format that [`ms`](https://www.npmjs.com/package/ms) supports.
+   * @param ttl For how long to keep the values.
    *
    * @example
    *
@@ -522,7 +524,7 @@ export class Cache<
     data: readonly D[],
     makeKey: (data: D, index: number) => K,
     producer: (data: readonly D[]) => Promise<Entries[K][]>,
-    ttl: string | ((value: Entries[K], index: number) => string),
+    ttl: TtlString | ((value: Entries[K], index: number) => TtlString),
   ): Promise<Entries[K][]>;
 
   async mcached<D, const K extends keyof Entries & string>(
@@ -530,9 +532,9 @@ export class Cache<
     makeKey: (data: D, index: number) => K,
     producer: (data: readonly D[]) => Promise<Entries[K][]>,
     ttl:
-      | string
+      | TtlString
       | number
-      | ((value: Entries[K], index: number) => string | number),
+      | ((value: Entries[K], index: number) => TtlString | number),
   ): Promise<Entries[K][]> {
     const keys = data.map((data, i) => makeKey(data, i));
     const cacheKeys = keys.map((k) => this.getCacheKey(k));
@@ -612,7 +614,7 @@ export class Cache<
 }
 
 function ttlToMs<A extends unknown[]>(
-  ttl: number | string | ((...args: A) => number | string),
+  ttl: number | TtlString | ((...args: A) => number | TtlString),
   fnArgs: A,
 ): number {
   if (typeof ttl === 'function') {

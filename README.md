@@ -238,11 +238,17 @@ const cacheAdapter = new NoTtlMemoryCacheAdapter();
 
 ### `ms` duration format
 
-All methods that take a duration (`set`/`cached`, etc.) accept either a ttl in milliseconds, or any duration string that can be parsed by the [`ms`](https://www.npmjs.com/package/ms) package.
+All methods that take a duration (`set`/`cached`, etc.) accept either a ttl in milliseconds, or any duration string that can be parsed by the [`ms`](https://www.npmjs.com/package/ms) package. Since the duration string is strongly typed, you will need an [`as const` assertion](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-4.html#const-assertions) to ensure the returned values are typed properly. All valid durations are exported as the `TtlString` type.
+
+```ts
+declare const result: Result;
+
+await resultCache.set('expensive-1', result, () => '1d' as const);
+```
 
 ### `Array.map` and `mget`, `mdel`, `mhas`
 
-For the operations `mget`, `mdel`, `mhas`, you may run into compiler errors if you map over an input array normally (see example below). To fix this, add an [`as const` assertion](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-4.html#const-assertions) to ensure that mapped keys are properly typed.
+For the operations `mget`, `mdel`, `mhas`, you may run into compiler errors if you simply map over an input array (see example below). To fix this, add an [`as const` assertion](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-4.html#const-assertions) to ensure that mapped keys are properly typed.
 
 ```ts
 declare const ids: string[];
