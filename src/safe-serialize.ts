@@ -82,7 +82,7 @@ function isFullyJsonSerializable(
       }
 
       // Check if it's a plain object: either has Object.prototype or null as its prototype.
-      // Do this to prevent serialising Date, Promise, etc.
+      // Do this to prevent serializing Date, Promise, etc.
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const proto = Object.getPrototypeOf(value);
       if (proto !== Object.prototype && proto !== null) return false;

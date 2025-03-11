@@ -4,11 +4,13 @@ import { type CacheAdapter } from './adapters';
 export type TtlString = StringValue;
 
 type Serialize<Entries extends Record<string, unknown>> = (
+  this: void,
   val: Entries[keyof Entries & string],
   key: keyof Entries & string,
 ) => string;
 
 type Deserialize<Entries extends Record<string, unknown>> = (
+  this: void,
   val: string,
   key: keyof Entries & string,
 ) => Entries[keyof Entries & string];
@@ -32,7 +34,7 @@ export interface CacheOptions<
    * @param key The requested key.
    * @param mode The operation that was performed.
    */
-  onMiss?: (key: keyof Entries & string, mode: CacheMode) => void;
+  onMiss?: (this: void, key: keyof Entries & string, mode: CacheMode) => void;
 
   /**
    * A callback that is called when a value is found in the cache.
@@ -40,7 +42,7 @@ export interface CacheOptions<
    * @param key The requested key.
    * @param mode The operation that was performed.
    */
-  onHit?: (key: keyof Entries & string, mode: CacheMode) => void;
+  onHit?: (this: void, key: keyof Entries & string, mode: CacheMode) => void;
 }
 
 export enum CacheMode {
@@ -68,10 +70,12 @@ export class Cache<
   private readonly deserialize: Deserialize<Entries>;
 
   private readonly onMiss?: (
+    this: void,
     key: keyof Entries & string,
     mode: CacheMode,
   ) => void;
   private readonly onHit?: (
+    this: void,
     key: keyof Entries & string,
     mode: CacheMode,
   ) => void;
@@ -83,7 +87,8 @@ export class Cache<
   ) {
     ({
       serialize: this.serialize = defaultSerialize,
-      deserialize: this.deserialize = defaultDeserialize,
+      deserialize: this
+        .deserialize = defaultDeserialize as Deserialize<Entries>,
       onMiss: this.onMiss,
       onHit: this.onHit,
     } = options);
@@ -177,7 +182,7 @@ export class Cache<
   set<K extends keyof Entries & string>(
     key: K,
     value: Entries[K],
-    ttlMs: number | ((value: Entries[K]) => number),
+    ttlMs: number | ((this: void, value: Entries[K]) => number),
   ): Promise<void>;
 
   /**
@@ -190,13 +195,16 @@ export class Cache<
   set<K extends keyof Entries & string>(
     key: K,
     value: Entries[K],
-    ttl: TtlString | ((value: Entries[K]) => TtlString),
+    ttl: TtlString | ((this: void, value: Entries[K]) => TtlString),
   ): Promise<void>;
 
   async set<K extends keyof Entries & string>(
     key: K,
     value: Entries[K],
-    ttl: TtlString | number | ((value: Entries[K]) => TtlString | number),
+    ttl:
+      | TtlString
+      | number
+      | ((this: void, value: Entries[K]) => TtlString | number),
   ): Promise<void> {
     const cacheKey = this.getCacheKey(key);
     const ttlMs = ttlToMs(ttl, [value]);
@@ -225,8 +233,12 @@ export class Cache<
    */
   mset<I extends readonly Entries[keyof Entries & string][]>(
     items: I,
-    makeKey: (item: I[number], index: number) => keyof Entries & string,
-    ttlMs: number | ((value: I[number], index: number) => number),
+    makeKey: (
+      this: void,
+      item: I[number],
+      index: number,
+    ) => keyof Entries & string,
+    ttlMs: number | ((this: void, value: I[number], index: number) => number),
   ): Promise<void>;
 
   /**
@@ -250,17 +262,27 @@ export class Cache<
    */
   mset<I extends readonly Entries[keyof Entries & string][]>(
     items: I,
-    makeKey: (item: I[number], index: number) => keyof Entries & string,
-    ttl: TtlString | ((value: I[number], index: number) => TtlString),
+    makeKey: (
+      this: void,
+      item: I[number],
+      index: number,
+    ) => keyof Entries & string,
+    ttl:
+      | TtlString
+      | ((this: void, value: I[number], index: number) => TtlString),
   ): Promise<void>;
 
   async mset<I extends readonly Entries[keyof Entries & string][]>(
     items: I,
-    makeKey: (item: I[number], index: number) => keyof Entries & string,
+    makeKey: (
+      this: void,
+      item: I[number],
+      index: number,
+    ) => keyof Entries & string,
     ttl:
       | TtlString
       | number
-      | ((value: I[number], index: number) => TtlString | number),
+      | ((this: void, value: I[number], index: number) => TtlString | number),
   ): Promise<void> {
     const keys = items.map((item, i) => makeKey(item, i));
     const cacheKeys = keys.map((k) => this.getCacheKey(k));
@@ -408,8 +430,8 @@ export class Cache<
    */
   cached<K extends keyof Entries & string>(
     key: K,
-    producer: () => Promise<Entries[K]>,
-    ttlMs: number | ((value: Entries[K]) => number),
+    producer: (this: void) => Promise<Entries[K]>,
+    ttlMs: number | ((this: void, value: Entries[K]) => number),
   ): Promise<Entries[K]>;
 
   /**
@@ -434,14 +456,17 @@ export class Cache<
    */
   cached<K extends keyof Entries & string>(
     key: K,
-    producer: () => Promise<Entries[K]>,
-    ttl: TtlString | ((value: Entries[K]) => TtlString),
+    producer: (this: void) => Promise<Entries[K]>,
+    ttl: TtlString | ((this: void, value: Entries[K]) => TtlString),
   ): Promise<Entries[K]>;
 
   async cached<K extends keyof Entries & string>(
     key: K,
-    producer: () => Promise<Entries[K]>,
-    ttl: TtlString | number | ((value: Entries[K]) => TtlString | number),
+    producer: (this: void) => Promise<Entries[K]>,
+    ttl:
+      | TtlString
+      | number
+      | ((this: void, value: Entries[K]) => TtlString | number),
   ): Promise<Entries[K]> {
     const cacheKey = this.getCacheKey(key);
 
@@ -489,9 +514,9 @@ export class Cache<
    */
   mcached<D, const K extends keyof Entries & string>(
     data: readonly D[],
-    makeKey: (data: D, index: number) => K,
-    producer: (data: readonly D[]) => Promise<Entries[K][]>,
-    ttlMs: number | ((value: Entries[K], index: number) => number),
+    makeKey: (this: void, data: D, index: number) => K,
+    producer: (this: void, data: readonly D[]) => Promise<Entries[K][]>,
+    ttlMs: number | ((this: void, value: Entries[K], index: number) => number),
   ): Promise<Entries[K][]>;
 
   /**
@@ -522,19 +547,21 @@ export class Cache<
    */
   mcached<D, const K extends keyof Entries & string>(
     data: readonly D[],
-    makeKey: (data: D, index: number) => K,
-    producer: (data: readonly D[]) => Promise<Entries[K][]>,
-    ttl: TtlString | ((value: Entries[K], index: number) => TtlString),
+    makeKey: (this: void, data: D, index: number) => K,
+    producer: (this: void, data: readonly D[]) => Promise<Entries[K][]>,
+    ttl:
+      | TtlString
+      | ((this: void, value: Entries[K], index: number) => TtlString),
   ): Promise<Entries[K][]>;
 
   async mcached<D, const K extends keyof Entries & string>(
     data: readonly D[],
-    makeKey: (data: D, index: number) => K,
-    producer: (data: readonly D[]) => Promise<Entries[K][]>,
+    makeKey: (this: void, data: D, index: number) => K,
+    producer: (this: void, data: readonly D[]) => Promise<Entries[K][]>,
     ttl:
       | TtlString
       | number
-      | ((value: Entries[K], index: number) => TtlString | number),
+      | ((this: void, value: Entries[K], index: number) => TtlString | number),
   ): Promise<Entries[K][]> {
     const keys = data.map((data, i) => makeKey(data, i));
     const cacheKeys = keys.map((k) => this.getCacheKey(k));
@@ -614,7 +641,8 @@ export class Cache<
 }
 
 function ttlToMs<A extends unknown[]>(
-  ttl: number | TtlString | ((...args: A) => number | TtlString),
+  this: void,
+  ttl: number | TtlString | ((this: void, ...args: A) => number | TtlString),
   fnArgs: A,
 ): number {
   if (typeof ttl === 'function') {
@@ -632,6 +660,6 @@ function defaultSerialize(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function defaultDeserialize<T>(value: string): T {
-  return JSON.parse(value) as T;
+function defaultDeserialize(value: string): unknown {
+  return JSON.parse(value);
 }
