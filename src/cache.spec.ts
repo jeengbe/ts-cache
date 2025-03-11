@@ -1,5 +1,5 @@
 import { MemoryCacheAdapter, TtlCacheEngine } from '@/adapters';
-import { Cache, CacheOptions, Operation } from './cache';
+import { Cache, CacheOperation, CacheOptions } from './cache';
 
 class MockTtlCacheEngine implements TtlCacheEngine<string, string> {
   private readonly values = new Map<string, [value: string, ttl: number]>();
@@ -52,8 +52,6 @@ describe('Cache', () => {
   beforeEach(() => {
     adapter = new MemoryCacheAdapter(new MockTtlCacheEngine());
     mockOptions = {
-      onMiss: jest.fn(),
-      onHit: jest.fn(),
       serialize: jest.fn((val) => JSON.stringify(val)),
       deserialize: jest.fn((val) => JSON.parse(val)),
     };
@@ -68,10 +66,13 @@ describe('Cache', () => {
       expect(value).toBeUndefined();
     });
 
-    it('records a miss if there is nothing cached', async () => {
+    it('emits a miss if there is nothing cached', async () => {
+      const onRead = jest.fn();
+      cache.on('read', onRead);
+
       await cache.get('foo');
 
-      expect(mockOptions.onMiss).toHaveBeenCalledWith('foo', Operation.Get);
+      expect(onRead).toHaveBeenCalledWith('foo', false, CacheOperation.Get);
     });
 
     it('returns cached value', async () => {
@@ -83,11 +84,14 @@ describe('Cache', () => {
     });
 
     it('records a hit if there is something cached', async () => {
+      const onRead = jest.fn();
+      cache.on('read', onRead);
+
       await cache.set('foo', 'bar', 0);
 
       await cache.get('foo');
 
-      expect(mockOptions.onHit).toHaveBeenCalledWith('foo', Operation.Get);
+      expect(onRead).toHaveBeenCalledWith('foo', true, CacheOperation.Get);
     });
 
     it("deserializes the value if it's cached", async () => {
@@ -128,23 +132,29 @@ describe('Cache', () => {
     });
 
     it('records a miss if there is nothing cached', async () => {
+      const onRead = jest.fn();
+      cache.on('read', onRead);
+
       await cache.set('b', 'bar', 0);
       await cache.set('d', 'baz', 0);
 
       await cache.mget(['a', 'b', 'c', 'd']);
 
-      expect(mockOptions.onMiss).toHaveBeenCalledWith('a', Operation.Mget);
-      expect(mockOptions.onMiss).toHaveBeenCalledWith('c', Operation.Mget);
+      expect(onRead).toHaveBeenCalledWith('a', false, CacheOperation.Mget);
+      expect(onRead).toHaveBeenCalledWith('c', false, CacheOperation.Mget);
     });
 
     it('records a hit if there is something cached', async () => {
+      const onRead = jest.fn();
+      cache.on('read', onRead);
+
       await cache.set('b', 'bar', 0);
       await cache.set('d', 'baz', 0);
 
       await cache.mget(['a', 'b', 'c', 'd']);
 
-      expect(mockOptions.onHit).toHaveBeenCalledWith('b', Operation.Mget);
-      expect(mockOptions.onHit).toHaveBeenCalledWith('d', Operation.Mget);
+      expect(onRead).toHaveBeenCalledWith('b', true, CacheOperation.Mget);
+      expect(onRead).toHaveBeenCalledWith('d', true, CacheOperation.Mget);
     });
 
     it("deserializes the value if it's cached", async () => {
@@ -158,11 +168,13 @@ describe('Cache', () => {
     });
 
     it('does nothing if nothing requested', async () => {
+      const onRead = jest.fn();
+      cache.on('read', onRead);
+
       const values = await cache.mget([]);
 
       expect(values).toEqual([]);
-      expect(mockOptions.onMiss).not.toHaveBeenCalled();
-      expect(mockOptions.onHit).not.toHaveBeenCalled();
+      expect(onRead).not.toHaveBeenCalled();
     });
 
     it('uses prefix', async () => {
@@ -654,11 +666,14 @@ describe('Cache', () => {
     });
 
     it('records a hit if there is something cached', async () => {
+      const onRead = jest.fn();
+      cache.on('read', onRead);
+
       await cache.set('foo', 'bar', 0);
 
       await cache.cached('foo', async () => 'baz', 0);
 
-      expect(mockOptions.onHit).toHaveBeenCalledWith('foo', Operation.Cached);
+      expect(onRead).toHaveBeenCalledWith('foo', true, CacheOperation.Cached);
     });
 
     it("deserializes the value if it's cached", async () => {
@@ -727,9 +742,12 @@ describe('Cache', () => {
     });
 
     it('records a miss if there is nothing cached', async () => {
+      const onRead = jest.fn();
+      cache.on('read', onRead);
+
       await cache.cached('foo', async () => 'bar', 0);
 
-      expect(mockOptions.onMiss).toHaveBeenCalledWith('foo', Operation.Cached);
+      expect(onRead).toHaveBeenCalledWith('foo', false, CacheOperation.Cached);
     });
 
     it('serializes the value before storing it', async () => {
@@ -775,6 +793,9 @@ describe('Cache', () => {
     });
 
     it('records a miss for those items that are not cached', async () => {
+      const onRead = jest.fn();
+      cache.on('read', onRead);
+
       await cache.set('foo-b', 'bar', 0);
       await cache.set('foo-d', 'baz', 0);
 
@@ -785,17 +806,22 @@ describe('Cache', () => {
         0,
       );
 
-      expect(mockOptions.onMiss).toHaveBeenCalledWith(
+      expect(onRead).toHaveBeenCalledWith(
         'foo-a',
-        Operation.Mcached,
+        false,
+        CacheOperation.Mcached,
       );
-      expect(mockOptions.onMiss).toHaveBeenCalledWith(
+      expect(onRead).toHaveBeenCalledWith(
         'foo-c',
-        Operation.Mcached,
+        false,
+        CacheOperation.Mcached,
       );
     });
 
     it('records a hit for those items that are cached', async () => {
+      const onRead = jest.fn();
+      cache.on('read', onRead);
+
       await cache.set('foo-b', 'bar', 0);
       await cache.set('foo-d', 'baz', 0);
 
@@ -806,13 +832,15 @@ describe('Cache', () => {
         0,
       );
 
-      expect(mockOptions.onHit).toHaveBeenCalledWith(
+      expect(onRead).toHaveBeenCalledWith(
         'foo-b',
-        Operation.Mcached,
+        true,
+        CacheOperation.Mcached,
       );
-      expect(mockOptions.onHit).toHaveBeenCalledWith(
+      expect(onRead).toHaveBeenCalledWith(
         'foo-d',
-        Operation.Mcached,
+        true,
+        CacheOperation.Mcached,
       );
     });
 
@@ -858,6 +886,9 @@ describe('Cache', () => {
     });
 
     it('records a hit if all items are cached', async () => {
+      const onRead = jest.fn();
+      cache.on('read', onRead);
+
       await cache.set('foo-a', 'bar', 0);
       await cache.set('foo-b', 'baz', 0);
       await cache.set('foo-c', 'qux', 0);
@@ -869,21 +900,27 @@ describe('Cache', () => {
         0,
       );
 
-      expect(mockOptions.onHit).toHaveBeenCalledWith(
+      expect(onRead).toHaveBeenCalledWith(
         'foo-a',
-        Operation.Mcached,
+        true,
+        CacheOperation.Mcached,
       );
-      expect(mockOptions.onHit).toHaveBeenCalledWith(
+      expect(onRead).toHaveBeenCalledWith(
         'foo-b',
-        Operation.Mcached,
+        true,
+        CacheOperation.Mcached,
       );
-      expect(mockOptions.onHit).toHaveBeenCalledWith(
+      expect(onRead).toHaveBeenCalledWith(
         'foo-c',
-        Operation.Mcached,
+        true,
+        CacheOperation.Mcached,
       );
     });
 
     it('records a miss if no items are cached', async () => {
+      const onRead = jest.fn();
+      cache.on('read', onRead);
+
       await cache.mcached(
         ['a', 'b', 'c', 'd'],
         (d) => `foo-${d}`,
@@ -891,21 +928,25 @@ describe('Cache', () => {
         0,
       );
 
-      expect(mockOptions.onMiss).toHaveBeenCalledWith(
+      expect(onRead).toHaveBeenCalledWith(
         'foo-a',
-        Operation.Mcached,
+        false,
+        CacheOperation.Mcached,
       );
-      expect(mockOptions.onMiss).toHaveBeenCalledWith(
+      expect(onRead).toHaveBeenCalledWith(
         'foo-b',
-        Operation.Mcached,
+        false,
+        CacheOperation.Mcached,
       );
-      expect(mockOptions.onMiss).toHaveBeenCalledWith(
+      expect(onRead).toHaveBeenCalledWith(
         'foo-c',
-        Operation.Mcached,
+        false,
+        CacheOperation.Mcached,
       );
-      expect(mockOptions.onMiss).toHaveBeenCalledWith(
+      expect(onRead).toHaveBeenCalledWith(
         'foo-d',
-        Operation.Mcached,
+        false,
+        CacheOperation.Mcached,
       );
     });
 

@@ -1,17 +1,6 @@
+import EventEmitter from 'events';
 import { type CacheAdapter } from './adapters';
 import { TtlExpression, ttlToMs } from './ttl';
-
-type Serialize<Entries extends Record<string, unknown>> = (
-  this: void,
-  val: Entries[keyof Entries & string],
-  key: keyof Entries & string,
-) => string;
-
-type Deserialize<Entries extends Record<string, unknown>> = (
-  this: void,
-  val: string,
-  key: keyof Entries & string,
-) => Entries[keyof Entries & string];
 
 export interface CacheOptions<
   Entries extends Record<string, unknown> = Record<string, unknown>,
@@ -25,50 +14,37 @@ export interface CacheOptions<
    * A function to deserialize the values after reading them from the cache.
    */
   deserialize?: Deserialize<Entries>;
-
-  /**
-   * A callback that is called when a value is not found in the cache.
-   *
-   * @param key The requested key.
-   * @param operation The operation that was performed.
-   */
-  onMiss?: (
-    this: void,
-    key: keyof Entries & string,
-    operation: Operation,
-  ) => void;
-
-  /**
-   * A callback that is called when a value is found in the cache.
-   *
-   * @param key The requested key.
-   * @param operation The operation that was performed.
-   */
-  onHit?: (
-    this: void,
-    key: keyof Entries & string,
-    operation: Operation,
-  ) => void;
 }
 
-export enum Operation {
+type Serialize<Entries extends Record<string, unknown>> = (
+  this: void,
+  val: Entries[keyof Entries & string],
+  key: keyof Entries & string,
+) => string;
+
+type Deserialize<Entries extends Record<string, unknown>> = (
+  this: void,
+  val: string,
+  key: keyof Entries & string,
+) => Entries[keyof Entries & string];
+
+export interface CacheEvents<Entries extends Record<string, unknown>> {
+  /**
+   * Fired after every cache read operation. For mget and mcached operations, the event is fired once for each key.
+   *
+   * @param key The requested key.
+   * @param hit Whether the key was found in the cache.
+   * @param operation The operation that was performed.
+   */
+  read: [key: keyof Entries, hit: boolean, operation: CacheOperation];
+}
+
+export enum CacheOperation {
   Get,
   Mget,
   Cached,
   Mcached,
 }
-
-/**
- * Deprecated alias for {@link Operation}.
- *
- * @deprecated Use {@link Operation} instead.
- */
-export const CacheMode = Operation;
-
-/**
- * @deprecated Use {@link Operation} instead.
- */
-export type CacheMode = Operation;
 
 /**
  * Context for all documentation comments:
@@ -83,32 +59,21 @@ export type CacheMode = Operation;
  */
 export class Cache<
   Entries extends Record<string, unknown> = Record<string, unknown>,
-> {
+> extends EventEmitter<CacheEvents<Entries>> {
   private readonly serialize: Serialize<Entries>;
   private readonly deserialize: Deserialize<Entries>;
-
-  private readonly onMiss?: (
-    this: void,
-    key: keyof Entries & string,
-    operation: Operation,
-  ) => void;
-  private readonly onHit?: (
-    this: void,
-    key: keyof Entries & string,
-    operation: Operation,
-  ) => void;
 
   constructor(
     private readonly cacheAdapter: CacheAdapter,
     private readonly prefix?: string,
     options: CacheOptions<Entries> = {},
   ) {
+    super();
+
     ({
       serialize: this.serialize = defaultSerialize,
       deserialize: this
         .deserialize = defaultDeserialize as Deserialize<Entries>,
-      onMiss: this.onMiss,
-      onHit: this.onHit,
     } = options);
   }
 
@@ -138,11 +103,11 @@ export class Cache<
     const res = await this.cacheAdapter.get(cacheKey);
 
     if (res === undefined) {
-      this.onMiss?.(key, Operation.Get);
+      this.emit('read', key, false, CacheOperation.Get);
       return undefined;
     }
 
-    this.onHit?.(key, Operation.Get);
+    this.emit('read', key, true, CacheOperation.Get);
     return this.deserialize(res, key) as Entries[K];
   }
 
@@ -179,11 +144,11 @@ export class Cache<
 
     return res.map((r, i) => {
       if (r === undefined) {
-        this.onMiss?.(keys[i], Operation.Mget);
+        this.emit('read', keys[i], false, CacheOperation.Mget);
         return undefined;
       }
 
-      this.onHit?.(keys[i], Operation.Mget);
+      this.emit('read', keys[i], true, CacheOperation.Mget);
       return this.deserialize(r, keys[i]);
     }) as {
       -readonly [I in keyof K]: Entries[K[I]] | undefined;
@@ -390,7 +355,7 @@ export class Cache<
     const res = await this.cacheAdapter.get(cacheKey);
 
     if (res === undefined) {
-      this.onMiss?.(key, Operation.Cached);
+      this.emit('read', key, false, CacheOperation.Cached);
       const value = await producer();
       const ttlMs = ttlToMs(ttl, [value]);
 
@@ -399,7 +364,7 @@ export class Cache<
       return value;
     }
 
-    this.onHit?.(key, Operation.Cached);
+    this.emit('read', key, true, CacheOperation.Cached);
     return this.deserialize(res, key) as Entries[K];
   }
 
@@ -444,10 +409,10 @@ export class Cache<
 
     cachedResults.forEach((result, i) => {
       if (result === undefined) {
-        this.onMiss?.(keys[i], Operation.Mcached);
+        this.emit('read', keys[i], false, CacheOperation.Mcached);
         missingIndices.push(i);
       } else {
-        this.onHit?.(keys[i], Operation.Mcached);
+        this.emit('read', keys[i], true, CacheOperation.Mcached);
         toReturn[i] = this.deserialize(result, keys[i]) as Entries[K];
       }
     });
