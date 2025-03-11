@@ -1,0 +1,29 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`safeJsonSerialize an object with 'undefined' values should serialize by default 1`] = `"{}"`;
+
+exports[`safeJsonSerialize an object with 'undefined' values should serialize with allowUndefined: true 1`] = `"{}"`;
+
+exports[`safeJsonSerialize should serialize a boolean 1`] = `"true"`;
+
+exports[`safeJsonSerialize should serialize a date if whitelisted 1`] = `""2025-03-11T15:34:47.683Z""`;
+
+exports[`safeJsonSerialize should serialize a finite number 1`] = `"42"`;
+
+exports[`safeJsonSerialize should serialize a plain object with null prototype 1`] = `"{}"`;
+
+exports[`safeJsonSerialize should serialize a string 1`] = `""hello""`;
+
+exports[`safeJsonSerialize should serialize an array 1`] = `"[1,2,3]"`;
+
+exports[`safeJsonSerialize should serialize an empty array 1`] = `"[]"`;
+
+exports[`safeJsonSerialize should serialize an empty object 1`] = `"{}"`;
+
+exports[`safeJsonSerialize should serialize an object with number keys 1`] = `"{"42":"value"}"`;
+
+exports[`safeJsonSerialize should serialize an object with string keys 1`] = `"{"key":"value"}"`;
+
+exports[`safeJsonSerialize should serialize custom types that are whitelisted 1`] = `"{"value":"foo"}"`;
+
+exports[`safeJsonSerialize should serialize null 1`] = `"null"`;

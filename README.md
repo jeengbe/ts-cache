@@ -278,3 +278,25 @@ await resultCache.mget(
   ids.map<`expensive-${string}`>((id) => `expensive-${id}`),
 );
 ```
+
+### `safeJsonSerialize`
+
+By default, the `Cache` class uses `JSON.stringify` to serialize values. However, this method does not validate whether the values are serializable, which can lead to unexpected results. For example, `JSON.stringify(Promise.resolve(1))` returns `"{}"`, which is not useful when parsed.
+
+To handle this issue, the package exports a `safeJsonSerialize` function that ensures only valid, serializable values are processed. You can pass this function to the `Cache` constructor to override the default serialization:
+
+```ts
+import { Cache, safeJsonSerialize } from '@jeengbe/cache';
+
+new Cache<MyServiceCacheTypes>(cacheAdapter, undefined, {
+  serialize: safeJsonSerialize,
+});
+```
+
+The `safeJsonSerialize` function performs runtime checks to validate whether values can be safely serialized. This helps avoid issues like:
+
+- Circular references
+- Non-serializable values like `undefined`, or `Promise`
+- `Date`, since `JSON.parse(JSON.stringify(new Date))` returns a string instead
+
+For a detailed overview of supported and unsupported values, refer to the unit tests for `safeJsonSerialize`. These tests provide a comprehensive list of scenarios and behaviours.
