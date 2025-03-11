@@ -6,7 +6,7 @@ exports[`safeJsonSerialize an object with 'undefined' values should serialize wi
 
 exports[`safeJsonSerialize should serialize a boolean 1`] = `"true"`;
 
-exports[`safeJsonSerialize should serialize a date if whitelisted 1`] = `""2025-03-11T15:34:47.683Z""`;
+exports[`safeJsonSerialize should serialize a date if whitelisted 1`] = `""1970-01-01T00:00:00.123Z""`;
 
 exports[`safeJsonSerialize should serialize a finite number 1`] = `"42"`;
 

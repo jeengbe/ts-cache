@@ -45,10 +45,10 @@ describe('safeJsonSerialize', () => {
   allows('an empty array', []);
   disallows('an array with undefined', [1, undefined, 3]);
 
-  disallows('a date object', new Date());
+  disallows('a date object', new Date(123));
   disallows('a promise object', Promise.resolve());
   allows('a plain object with null prototype', Object.create(null));
-  allows('a date if whitelisted', new Date(), { whitelistTypes: [Date] });
+  allows('a date if whitelisted', new Date(123), { whitelistTypes: [Date] });
   disallows("custom types that aren't whitelisted", new CustomType('foo'));
   allows('custom types that are whitelisted', new CustomType('foo'), {
     whitelistTypes: [CustomType],
