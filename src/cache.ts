@@ -1,7 +1,5 @@
-import ms, { StringValue } from 'ms';
 import { type CacheAdapter } from './adapters';
-
-export type TtlString = StringValue;
+import { TtlExpression, ttlToMs } from './ttl';
 
 type Serialize<Entries extends Record<string, unknown>> = (
   this: void,
@@ -197,34 +195,12 @@ export class Cache<
    *
    * Use {@link Cache.cached} if you want to read a value from cache and only calculate+store it if it's not set.
    *
-   * @param ttlMs For how long to keep the value in milliseconds.
+   * @param ttl For how long to keep the value in milliseconds or a duration string.
    */
-  set<K extends keyof Entries & string>(
-    key: K,
-    value: Entries[K],
-    ttlMs: number | ((this: void, value: Entries[K]) => number),
-  ): Promise<void>;
-
-  /**
-   * Saves the value for a given cache key to the cache.
-   *
-   * Use {@link Cache.cached} if you want to read a value from cache and only calculate+store it if it's not set.
-   *
-   * @param ttl For how long to keep the value.
-   */
-  set<K extends keyof Entries & string>(
-    key: K,
-    value: Entries[K],
-    ttl: TtlString | ((this: void, value: Entries[K]) => TtlString),
-  ): Promise<void>;
-
   async set<K extends keyof Entries & string>(
     key: K,
     value: Entries[K],
-    ttl:
-      | TtlString
-      | number
-      | ((this: void, value: Entries[K]) => TtlString | number),
+    ttl: TtlExpression<[value: Entries[K]]>,
   ): Promise<void> {
     const cacheKey = this.getCacheKey(key);
     const ttlMs = ttlToMs(ttl, [value]);
@@ -237,36 +213,7 @@ export class Cache<
    *
    * Use {@link Cache.mcached} if you want to read many values from the cache and only compute values+save them for those not in the cache.
    *
-   * @param ttlMs For how long to keep the values in milliseconds.
-   *
-   * @example
-   *
-   * ```ts
-   * declare const items: readonly Result[];
-   *
-   * await resultCache.mset(
-   *   items,
-   *   (item) => `expensive-${item.id}`,
-   *   1000,
-   * );
-   * ```
-   */
-  mset<I extends readonly Entries[keyof Entries & string][]>(
-    items: I,
-    makeKey: (
-      this: void,
-      item: I[number],
-      index: number,
-    ) => keyof Entries & string,
-    ttlMs: number | ((this: void, value: I[number], index: number) => number),
-  ): Promise<void>;
-
-  /**
-   * Saves many values to the cache. Takes a list of values and a function to calculate the cache keys from those.
-   *
-   * Use {@link Cache.mcached} if you want to read many values from the cache and only compute values+save them for those not in the cache.
-   *
-   * @param ttl For how long to keep the values.
+   * @param ttl For how long to keep the values in milliseconds or a duration string.
    *
    * @example
    *
@@ -280,18 +227,6 @@ export class Cache<
    * );
    * ```
    */
-  mset<I extends readonly Entries[keyof Entries & string][]>(
-    items: I,
-    makeKey: (
-      this: void,
-      item: I[number],
-      index: number,
-    ) => keyof Entries & string,
-    ttl:
-      | TtlString
-      | ((this: void, value: I[number], index: number) => TtlString),
-  ): Promise<void>;
-
   async mset<I extends readonly Entries[keyof Entries & string][]>(
     items: I,
     makeKey: (
@@ -299,10 +234,7 @@ export class Cache<
       item: I[number],
       index: number,
     ) => keyof Entries & string,
-    ttl:
-      | TtlString
-      | number
-      | ((this: void, value: I[number], index: number) => TtlString | number),
+    ttl: TtlExpression<[value: I[number], index: number]>,
   ): Promise<void> {
     const keys = items.map((item, i) => makeKey(item, i));
     const cacheKeys = keys.map((k) => this.getCacheKey(k));
@@ -432,33 +364,7 @@ export class Cache<
    * Wraps a function call in a cache and only executes it if the
    * value is not in the cache.
    *
-   * @param ttlMs For how long to keep the value in milliseconds.
-   *
-   * @example
-   *
-   * ```ts
-   * declare function expensiveFunction(id: string): Promise<Result>;
-   * declare const id: string;
-   *
-   * const result = await resultCache.cached(
-   *   //  ^? Result
-   *   `expensive-${id}`,
-   *   () => expensiveFunction(id),
-   *   1000,
-   * );
-   * ```
-   */
-  cached<K extends keyof Entries & string>(
-    key: K,
-    producer: (this: void) => Promise<Entries[K]>,
-    ttlMs: number | ((this: void, value: Entries[K]) => number),
-  ): Promise<Entries[K]>;
-
-  /**
-   * Wraps a function call in a cache and only executes it if the
-   * value is not in the cache.
-   *
-   * @param ttl For how long to keep the value.
+   * @param ttl For how long to keep the value in milliseconds or a duration string.
    *
    * @example
    *
@@ -474,19 +380,10 @@ export class Cache<
    * );
    * ```
    */
-  cached<K extends keyof Entries & string>(
-    key: K,
-    producer: (this: void) => Promise<Entries[K]>,
-    ttl: TtlString | ((this: void, value: Entries[K]) => TtlString),
-  ): Promise<Entries[K]>;
-
   async cached<K extends keyof Entries & string>(
     key: K,
     producer: (this: void) => Promise<Entries[K]>,
-    ttl:
-      | TtlString
-      | number
-      | ((this: void, value: Entries[K]) => TtlString | number),
+    ttl: TtlExpression<[value: Entries[K]]>,
   ): Promise<Entries[K]> {
     const cacheKey = this.getCacheKey(key);
 
@@ -513,40 +410,7 @@ export class Cache<
    * @param producer Takes an array of input items that are not cached and returns an array of results. The output array must have
    * the same length as the input, and items are mapped by their array indices.
    *
-   * @param ttlMs For how long to keep the values in milliseconds.
-   *
-   * @example
-   *
-   * ```ts
-   * declare function expensiveBatchFunction(
-   *   ids: readonly string[],
-   * ): Promise<Result[]>;
-   * declare const ids: string[];
-   *
-   * const results = await resultCache.mcached(
-   *   //  ^? Result[]
-   *   ids,
-   *   (id) => `expensive-${id}`,
-   *   (m) => expensiveBatchFunction(m),
-   *   1000,
-   * );
-   * ```
-   */
-  mcached<D, const K extends keyof Entries & string>(
-    data: readonly D[],
-    makeKey: (this: void, data: D, index: number) => K,
-    producer: (this: void, data: readonly D[]) => Promise<Entries[K][]>,
-    ttlMs: number | ((this: void, value: Entries[K], index: number) => number),
-  ): Promise<Entries[K][]>;
-
-  /**
-   * Wraps a batch function call in a cache and only executes for those values that are not cached.
-   * If all requested keys are cached, the producer is not executed.
-   *
-   * @param producer Takes an array of input items that are not cached and returns an array of results. The output array must have
-   * the same length as the input, and items are mapped by their array indices.
-   *
-   * @param ttl For how long to keep the values.
+   * @param ttl For how long to keep the values in milliseconds or a duration string.
    *
    * @example
    *
@@ -565,23 +429,11 @@ export class Cache<
    * );
    * ```
    */
-  mcached<D, const K extends keyof Entries & string>(
-    data: readonly D[],
-    makeKey: (this: void, data: D, index: number) => K,
-    producer: (this: void, data: readonly D[]) => Promise<Entries[K][]>,
-    ttl:
-      | TtlString
-      | ((this: void, value: Entries[K], index: number) => TtlString),
-  ): Promise<Entries[K][]>;
-
   async mcached<D, const K extends keyof Entries & string>(
     data: readonly D[],
     makeKey: (this: void, data: D, index: number) => K,
     producer: (this: void, data: readonly D[]) => Promise<Entries[K][]>,
-    ttl:
-      | TtlString
-      | number
-      | ((this: void, value: Entries[K], index: number) => TtlString | number),
+    ttl: TtlExpression<[value: Entries[K], index: number]>,
   ): Promise<Entries[K][]> {
     const keys = data.map((data, i) => makeKey(data, i));
     const cacheKeys = keys.map((k) => this.getCacheKey(k));
@@ -658,22 +510,6 @@ export class Cache<
 
     return `${this.prefix}:${key}`;
   }
-}
-
-function ttlToMs<A extends unknown[]>(
-  this: void,
-  ttl: number | TtlString | ((this: void, ...args: A) => number | TtlString),
-  fnArgs: A,
-): number {
-  if (typeof ttl === 'function') {
-    return ttlToMs(ttl(...fnArgs), []);
-  }
-
-  if (typeof ttl === 'number') {
-    return ttl;
-  }
-
-  return ms(ttl);
 }
 
 function defaultSerialize(value: unknown): string {
