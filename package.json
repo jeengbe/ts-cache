@@ -1,13 +1,13 @@
 {
   "name": "@jeengbe/cache",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "A strongly typed caching framework that works with any engine.",
   "license": "MIT",
   "files": [
     "dist",
     "src",
-    "!**/__tests__",
-    "!**/__utils__"
+    "!**/*.spec.*",
+    "!**/__snapshots__"
   ],
   "keywords": [
     "cache",
