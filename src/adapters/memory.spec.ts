@@ -1,13 +1,13 @@
 import assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
+import { CacheAdapter } from './interface';
 import {
-  CacheAdapter,
   CacheBackupSaver,
   DiskCacheBackupSaver,
   MemoryCacheAdapter,
   TtlCacheEngine,
-} from '..';
+} from './memory';
 
 const mockCacheEngine: jest.Mocked<TtlCacheEngine<string, string>> = {
   get: jest.fn(),

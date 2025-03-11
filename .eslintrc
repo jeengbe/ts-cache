@@ -83,7 +83,10 @@
         {
           "files": [
             "**/__tests__/**/*",
-            "**/__utils__/**/*"
+            "**/__utils__/**/*",
+            "**/*.spec.{ts,tsx}",
+            "**/*.fake.{ts,tsx}",
+            "**/__utils__.{ts,tsx}"
           ],
           "rules": {
             // Using "any" is fine in tests.

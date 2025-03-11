@@ -1,7 +1,8 @@
 import { RedisContainer, StartedRedisContainer } from '@testcontainers/redis';
 import assert from 'assert';
 import { Redis, ScanStream } from 'ioredis';
-import { CacheAdapter, RedisCacheAdapter } from '..';
+import { CacheAdapter } from './interface';
+import { RedisCacheAdapter } from './redis';
 
 class MockScanStream extends ScanStream {
   constructor(private readonly batches: readonly (readonly string[])[]) {

@@ -1,10 +1,5 @@
-import {
-  Cache,
-  CacheMode,
-  CacheOptions,
-  MemoryCacheAdapter,
-  TtlCacheEngine,
-} from '..';
+import { MemoryCacheAdapter, TtlCacheEngine } from '@/adapters';
+import { Cache, CacheMode, CacheOptions } from './cache';
 
 class MockTtlCacheEngine implements TtlCacheEngine<string, string> {
   private readonly values = new Map<string, [value: string, ttl: number]>();

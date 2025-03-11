@@ -1,4 +1,5 @@
-import { CacheAdapter, NoTtlCacheEngine, NoTtlMemoryCacheAdapter } from '..';
+import { CacheAdapter } from './interface';
+import { NoTtlCacheEngine, NoTtlMemoryCacheAdapter } from './memory-no-ttl';
 
 const mockCacheEngine: jest.Mocked<NoTtlCacheEngine<string, string>> = {
   get: jest.fn(),

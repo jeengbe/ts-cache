@@ -1,4 +1,5 @@
-import { CacheAdapter, VoidCacheAdapter } from '..';
+import { CacheAdapter } from './interface';
+import { VoidCacheAdapter } from './void';
 
 describe('VoidCacheAdapter', () => {
   let adapter: CacheAdapter;
