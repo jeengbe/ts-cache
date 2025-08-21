@@ -137,7 +137,7 @@ Use `clear` to delete the cached values for all keys.
 
 Use `has` to check whether there exists a cached value for a single key.
 
-To delete whether several keys have a cached value, use `mhas`. `mhas` only reports whether all of the provided keys have a value cached and returns no inforation about which/how many of the given keys have no value cached.
+To check whether there exist cached values for several keys, use `mhas`.
 
 ### Get and if not present, calculate and set (`cached`/`mcached`)
 

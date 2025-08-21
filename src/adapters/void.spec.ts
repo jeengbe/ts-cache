@@ -34,7 +34,7 @@ describe('VoidCacheAdapter', () => {
   });
 
   test('mhas returns false', async () => {
-    expect(await adapter.mhas(['foo'])).toBe(false);
+    expect(await adapter.mhas(['foo'])).toEqual([false]);
   });
 
   test('getRemainingTtl returns undefined', async () => {

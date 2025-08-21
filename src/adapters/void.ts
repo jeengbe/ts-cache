@@ -17,8 +17,8 @@ export class VoidCacheAdapter implements CacheAdapter {
     // No-op
   }
 
-  async mhas(): Promise<boolean> {
-    return false;
+  async mhas(keys: readonly string[]): Promise<boolean[]> {
+    return new Array<boolean>(keys.length).fill(false);
   }
 
   async getRemainingTtl(): Promise<number | undefined> {

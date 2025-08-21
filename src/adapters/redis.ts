@@ -137,7 +137,7 @@ export class RedisCacheAdapter implements CacheAdapter {
     }
   }
 
-  async mhas(keys: readonly string[]): Promise<boolean> {
+  async mhas(keys: readonly string[]): Promise<boolean[]> {
     try {
       return await this._mhas(keys);
     } catch (err) {
@@ -147,10 +147,17 @@ export class RedisCacheAdapter implements CacheAdapter {
     }
   }
 
-  private async _mhas(keys: readonly string[]): Promise<boolean> {
-    if (keys.length === 0) return true;
+  private async _mhas(keys: readonly string[]): Promise<boolean[]> {
+    const pipeline = this.client.pipeline();
 
-    return (await this.client.exists(...keys)) === keys.length;
+    for (const key of keys) {
+      pipeline.exists(key);
+    }
+
+    const results = await pipeline.exec();
+
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- I really can't find in their code when this would be null
+    return results!.map(([, result]) => result === 1);
   }
 
   async getRemainingTtl(key: string): Promise<number | undefined> {

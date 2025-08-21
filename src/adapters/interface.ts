@@ -24,9 +24,9 @@ export interface CacheAdapter {
   pdel(pattern: string): Promise<void>;
 
   /**
-   * Checks if all given keys exist.
+   * Checks whether each key exists.
    */
-  mhas(keys: readonly string[]): Promise<boolean>;
+  mhas(keys: readonly string[]): Promise<boolean[]>;
 
   /**
    * Gets the remaining time to live of a key in milliseconds or undefined if the key does not exist.

@@ -84,7 +84,7 @@ describe('NoTtlMemoryCacheAdapter', () => {
 
     expect(mockCacheEngine.has).toHaveBeenCalledWith('foo');
     expect(mockCacheEngine.has).toHaveBeenCalledWith('bar');
-    expect(res).toEqual(false);
+    expect(res).toEqual([true, false]);
   });
 
   describe('getRemainingTtl', () => {

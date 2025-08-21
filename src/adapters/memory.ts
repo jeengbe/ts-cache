@@ -74,8 +74,8 @@ export class MemoryCacheAdapter implements CacheAdapter {
     void this.saveBackup();
   }
 
-  async mhas(keys: readonly string[]): Promise<boolean> {
-    return keys.every((k) => this.cache.has(k));
+  async mhas(keys: readonly string[]): Promise<boolean[]> {
+    return keys.map((k) => this.cache.has(k));
   }
 
   async getRemainingTtl(key: string): Promise<number | undefined> {

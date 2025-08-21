@@ -48,8 +48,8 @@ export class NoTtlMemoryCacheAdapter implements CacheAdapter {
     keysToDelete.forEach((key) => this.cache.delete(key));
   }
 
-  async mhas(keys: readonly string[]): Promise<boolean> {
-    return keys.every((k) => this.cache.has(k));
+  async mhas(keys: readonly string[]): Promise<boolean[]> {
+    return keys.map((k) => this.cache.has(k));
   }
 
   async getRemainingTtl(key: string): Promise<number | undefined> {

@@ -594,21 +594,12 @@ describe('Cache', () => {
   });
 
   describe('mhas', () => {
-    it('returns true if all values exist', async () => {
-      await cache.set('foo', 'bar', 0);
-      await cache.set('bar', 'baz', 0);
-
-      const value = await cache.mhas(['foo', 'bar']);
-
-      expect(value).toBe(true);
-    });
-
-    it('returns false if any value does not exist', async () => {
+    it('returns whether each key exists', async () => {
       await cache.set('foo', 'bar', 0);
 
       const value = await cache.mhas(['foo', 'bar']);
 
-      expect(value).toBe(false);
+      expect(value).toEqual([true, false]);
     });
 
     it('uses prefix', async () => {
@@ -623,9 +614,9 @@ describe('Cache', () => {
         const valueB = await cacheB.mhas(['foo']);
         const valueC = await cacheC.mhas(['foo']);
 
-        expect(valueA).toBe(true);
-        expect(valueB).toBe(false);
-        expect(valueC).toBe(false);
+        expect(valueA).toEqual([true]);
+        expect(valueB).toEqual([false]);
+        expect(valueC).toEqual([false]);
       }
 
       await cacheB.set('foo', 'baz', 0);
@@ -635,9 +626,9 @@ describe('Cache', () => {
         const valueB = await cacheB.mhas(['foo']);
         const valueC = await cacheC.mhas(['foo']);
 
-        expect(valueA).toBe(true);
-        expect(valueB).toBe(true);
-        expect(valueC).toBe(false);
+        expect(valueA).toEqual([true]);
+        expect(valueB).toEqual([true]);
+        expect(valueC).toEqual([false]);
       }
 
       await cacheC.set('foo', 'qux', 0);
@@ -647,9 +638,9 @@ describe('Cache', () => {
         const valueB = await cacheB.mhas(['foo']);
         const valueC = await cacheC.mhas(['foo']);
 
-        expect(valueA).toBe(true);
-        expect(valueB).toBe(true);
-        expect(valueC).toBe(true);
+        expect(valueA).toEqual([true]);
+        expect(valueB).toEqual([true]);
+        expect(valueC).toEqual([true]);
       }
     });
   });

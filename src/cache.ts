@@ -300,25 +300,25 @@ export class Cache<
   async has(key: keyof Entries & string): Promise<boolean> {
     const cacheKey = this.getCacheKey(key);
 
-    return await this.cacheAdapter.mhas([cacheKey]);
+    const [res] = await this.cacheAdapter.mhas([cacheKey]);
+
+    return res;
   }
 
   /**
-   * Checks whether there is a value cached for all of the given keys.
-   *
-   * @returns `true` if all keys have a value cached, `false` if at least one key has no value in the cache.
+   * Checks for each given key whether a value is cached.
    *
    * @example
    *
    * ```ts
-   * declare const ids: string;
+   * declare const ids: string[];
    *
-   * const allCached = await resultCache.has(
+   * const areCached = await resultCache.mhas(
    *   ids.map(id => `expensive-${id}` as const),
    * );
    * ```
    */
-  async mhas(keys: readonly (keyof Entries & string)[]): Promise<boolean> {
+  async mhas(keys: readonly (keyof Entries & string)[]): Promise<boolean[]> {
     const cacheKeys = keys.map((k) => this.getCacheKey(k));
 
     return await this.cacheAdapter.mhas(cacheKeys);

@@ -1,6 +1,6 @@
 import { RedisContainer, StartedRedisContainer } from '@testcontainers/redis';
 import assert from 'assert';
-import { Redis, ScanStream } from 'ioredis';
+import { ChainableCommander, Redis, ScanStream } from 'ioredis';
 import { CacheAdapter } from './interface';
 import { RedisCacheAdapter } from './redis';
 
@@ -353,31 +353,30 @@ describe('RedisCacheAdapter', () => {
   });
 
   describe('mhas', () => {
-    it('returns true if no keys are requested', async () => {
+    it('returns empty array if no keys are requested', async () => {
       const exists = await adapter.mhas([]);
 
-      expect(exists).toBe(true);
+      expect(exists).toEqual([]);
     });
 
-    it('returns true if all keys exist', async () => {
-      await redis.mset('foo', 'bar', 'baz', 'qux');
-
-      const exists = await adapter.mhas(['foo', 'baz']);
-
-      expect(exists).toBe(true);
-    });
-
-    it('returns false if any key does not exist', async () => {
+    it('returns whether each key exists', async () => {
       await redis.set('foo', 'bar');
 
       const exists = await adapter.mhas(['foo', 'baz']);
 
-      expect(exists).toBe(false);
+      expect(exists).toEqual([true, false]);
     });
 
     describe('wraps Redis errors', () => {
       it('throws an error', async () => {
-        jest.spyOn(redis, 'exists').mockRejectedValue(new Error());
+        jest.spyOn(redis, 'pipeline').mockReturnValue({
+          exists() {
+            return this;
+          },
+          exec() {
+            throw new Error();
+          },
+        } as unknown as ChainableCommander);
 
         await expect(adapter.mhas(['foo', 'baz'])).rejects.toThrow(
           'Failed to check if keys exist in Redis.',
