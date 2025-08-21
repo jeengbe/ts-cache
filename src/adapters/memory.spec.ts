@@ -39,12 +39,6 @@ describe('MemoryCacheAdapter', () => {
     jest.resetAllMocks();
   });
 
-  test('get', async () => {
-    await adapter.get('foo');
-
-    expect(mockCacheEngine.get).toHaveBeenCalledWith('foo');
-  });
-
   test('mget', async () => {
     mockCacheEngine.get.mockReturnValueOnce('bar').mockReturnValueOnce('qux');
 
@@ -53,14 +47,6 @@ describe('MemoryCacheAdapter', () => {
     expect(mockCacheEngine.get).toHaveBeenCalledWith('foo');
     expect(mockCacheEngine.get).toHaveBeenCalledWith('baz');
     expect(res).toEqual(['bar', 'qux']);
-  });
-
-  test('set', async () => {
-    await adapter.set('foo', 'bar', 1000);
-
-    expect(mockCacheEngine.set).toHaveBeenCalledWith('foo', 'bar', {
-      ttl: 1000,
-    });
   });
 
   test('mset', async () => {
@@ -75,12 +61,6 @@ describe('MemoryCacheAdapter', () => {
     expect(mockCacheEngine.set).toHaveBeenCalledWith('baz', 'qux', {
       ttl: 2000,
     });
-  });
-
-  test('del', async () => {
-    await adapter.del('foo');
-
-    expect(mockCacheEngine.delete).toHaveBeenCalledWith('foo');
   });
 
   test('mdel', async () => {
@@ -110,12 +90,6 @@ describe('MemoryCacheAdapter', () => {
     });
   });
 
-  test('has', async () => {
-    await adapter.has('foo');
-
-    expect(mockCacheEngine.has).toHaveBeenCalledWith('foo');
-  });
-
   test('mhas', async () => {
     mockCacheEngine.has.mockReturnValueOnce(true).mockReturnValueOnce(false);
 
@@ -135,23 +109,11 @@ describe('MemoryCacheAdapter', () => {
     expect(res).toEqual(1000);
   });
 
-  it('saves the cache backup after set', async () => {
-    await adapter.set('foo', 'bar', 1000);
-
-    expect(mockDiskSaver.saveCacheBackup).toHaveBeenCalled();
-  });
-
   it('saves the cache backup after mset', async () => {
     await adapter.mset([
       ['foo', 'bar', 1000],
       ['baz', 'qux', 2000],
     ]);
-
-    expect(mockDiskSaver.saveCacheBackup).toHaveBeenCalled();
-  });
-
-  it('saves the cache backup after del', async () => {
-    await adapter.del('foo');
 
     expect(mockDiskSaver.saveCacheBackup).toHaveBeenCalled();
   });
@@ -216,7 +178,7 @@ describe('MemoryCacheAdapter', () => {
     mockCacheEngine.getRemainingTTL.mockReturnValue(1000);
 
     // Trigger save
-    await adapter.set('foo', 'bar', 1000);
+    await adapter.mset([['foo', 'bar', 1000]]);
 
     expect(mockDiskSaver.saveCacheBackup).toHaveBeenCalledWith({
       foo: {
@@ -240,7 +202,7 @@ describe('MemoryCacheAdapter', () => {
     mockCacheEngine.getRemainingTTL.mockReturnValue(1000);
 
     // Trigger save
-    await adapter.set('foo', 'bar', 1000);
+    await adapter.mset([['foo', 'bar', 1000]]);
 
     expect(mockDiskSaver.saveCacheBackup).toHaveBeenCalledWith({
       foo: {
@@ -255,7 +217,7 @@ describe('MemoryCacheAdapter', () => {
   it('handles no backup saver being provided', async () => {
     const adapter = new MemoryCacheAdapter(mockCacheEngine);
 
-    await adapter.set('foo', 'bar', 1000);
+    await adapter.mset([['foo', 'bar', 1000]]);
 
     expect(mockDiskSaver.saveCacheBackup).not.toHaveBeenCalled();
   });

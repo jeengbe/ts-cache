@@ -64,47 +64,13 @@ describe('RedisCacheAdapter', () => {
     await redis.flushall();
   });
 
-  describe('get', () => {
-    it('returns the value for the given key', async () => {
-      await redis.set('foo', 'bar');
-
-      const value = await adapter.get('foo');
-
-      expect(value).toBe('bar');
-    });
-
-    it('returns undefined if the key does not exist', async () => {
-      const value = await adapter.get('foo');
-
-      expect(value).toBeUndefined();
-    });
-
-    describe('wraps Redis errors', () => {
-      it('throws an error', async () => {
-        jest.spyOn(redis, 'get').mockRejectedValue(new Error());
-
-        await expect(adapter.get('foo')).rejects.toThrow(
-          'Failed to get key from Redis.',
-        );
-      });
-
-      it('includes the original error', async () => {
-        const error = new Error();
-        jest.spyOn(redis, 'get').mockRejectedValue(error);
-
-        try {
-          await adapter.get('foo');
-        } catch (err) {
-          expect(err).toBeInstanceOf(Error);
-          assert(err instanceof Error);
-
-          expect(err.cause).toBe(error);
-        }
-      });
-    });
-  });
-
   describe('mget', () => {
+    it('handles getting no values', async () => {
+      const values = await adapter.mget([]);
+
+      expect(values).toEqual([]);
+    });
+
     it('returns the values for the given keys', async () => {
       await redis.mset('foo', 'bar', 'baz', 'qux');
 
@@ -146,50 +112,11 @@ describe('RedisCacheAdapter', () => {
     });
   });
 
-  describe('set', () => {
-    it('sets the value for the given key', async () => {
-      await adapter.set('foo', 'bar', 1000);
-
-      const value = await redis.get('foo');
-
-      expect(value).toBe('bar');
-    });
-
-    it('sets the value with an expiration', async () => {
-      await adapter.set('foo', 'bar', 1000);
-
-      const value = await redis.get('foo');
-
-      expect(value).toBe('bar');
-      expect(await redis.pttl('foo')).toBeLessThanOrEqual(1000);
-    });
-
-    describe('wraps Redis errors', () => {
-      it('throws an error', async () => {
-        jest.spyOn(redis, 'set').mockRejectedValue(new Error());
-
-        await expect(adapter.set('foo', 'bar', 1000)).rejects.toThrow(
-          'Failed to set key in Redis.',
-        );
-      });
-
-      it('includes the original error', async () => {
-        const error = new Error();
-        jest.spyOn(redis, 'set').mockRejectedValue(error);
-
-        try {
-          await adapter.set('foo', 'bar', 1000);
-        } catch (err) {
-          expect(err).toBeInstanceOf(Error);
-          assert(err instanceof Error);
-
-          expect(err.cause).toBe(error);
-        }
-      });
-    });
-  });
-
   describe('mset', () => {
+    it('handles setting no values', async () => {
+      await adapter.mset([]);
+    });
+
     it('sets the values for the given keys', async () => {
       await adapter.mset([
         ['foo', 'baz', 1000],
@@ -209,6 +136,20 @@ describe('RedisCacheAdapter', () => {
 
       expect(await redis.pttl('foo')).toBeLessThanOrEqual(1000);
       expect(await redis.pttl('bar')).toBeLessThanOrEqual(2000);
+    });
+
+    it('sets a single value for a given keys', async () => {
+      await adapter.mset([['foo', 'baz', 1000]]);
+
+      const value = await redis.mget('foo');
+
+      expect(value).toEqual(['baz']);
+    });
+
+    it('sets a single value with an expiration', async () => {
+      await adapter.mset([['foo', 'baz', 1000]]);
+
+      expect(await redis.pttl('foo')).toBeLessThanOrEqual(1000);
     });
 
     describe('wraps Redis errors', () => {
@@ -242,43 +183,11 @@ describe('RedisCacheAdapter', () => {
     });
   });
 
-  describe('del', () => {
-    it('deletes the value for the given key', async () => {
-      await redis.set('foo', 'bar');
-
-      await adapter.del('foo');
-
-      const exists = await redis.exists('foo');
-
-      expect(exists).toBe(0);
-    });
-
-    describe('wraps Redis errors', () => {
-      it('throws an error', async () => {
-        jest.spyOn(redis, 'del').mockRejectedValue(new Error());
-
-        await expect(adapter.del('foo')).rejects.toThrow(
-          'Failed to delete key from Redis.',
-        );
-      });
-
-      it('includes the original error', async () => {
-        const error = new Error();
-        jest.spyOn(redis, 'del').mockRejectedValue(error);
-
-        try {
-          await adapter.del('foo');
-        } catch (err) {
-          expect(err).toBeInstanceOf(Error);
-          assert(err instanceof Error);
-
-          expect(err.cause).toBe(error);
-        }
-      });
-    });
-  });
-
   describe('mdel', () => {
+    it('handles deleting no values', async () => {
+      await adapter.mdel([]);
+    });
+
     it('deletes the values for the given keys', async () => {
       await redis.mset('foo', 'bar', 'baz', 'qux');
 
@@ -443,47 +352,13 @@ describe('RedisCacheAdapter', () => {
     });
   });
 
-  describe('has', () => {
-    it('returns true if the key exists', async () => {
-      await redis.set('foo', 'bar');
-
-      const exists = await adapter.has('foo');
+  describe('mhas', () => {
+    it('returns true if no keys are requested', async () => {
+      const exists = await adapter.mhas([]);
 
       expect(exists).toBe(true);
     });
 
-    it('returns false if the key does not exist', async () => {
-      const exists = await adapter.has('foo');
-
-      expect(exists).toBe(false);
-    });
-
-    describe('wraps Redis errors', () => {
-      it('throws an error', async () => {
-        jest.spyOn(redis, 'exists').mockRejectedValue(new Error());
-
-        await expect(adapter.has('foo')).rejects.toThrow(
-          'Failed to check if key exists in Redis.',
-        );
-      });
-
-      it('includes the original error', async () => {
-        const error = new Error();
-        jest.spyOn(redis, 'exists').mockRejectedValue(error);
-
-        try {
-          await adapter.has('foo');
-        } catch (err) {
-          expect(err).toBeInstanceOf(Error);
-          assert(err instanceof Error);
-
-          expect(err.cause).toBe(error);
-        }
-      });
-    });
-  });
-
-  describe('mhas', () => {
     it('returns true if all keys exist', async () => {
       await redis.mset('foo', 'bar', 'baz', 'qux');
 

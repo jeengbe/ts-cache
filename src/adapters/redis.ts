@@ -4,20 +4,6 @@ import type { CacheAdapter } from '.';
 export class RedisCacheAdapter implements CacheAdapter {
   constructor(private readonly client: Redis) {}
 
-  async get(key: string): Promise<string | undefined> {
-    try {
-      return await this._get(key);
-    } catch (err) {
-      throw new Error('Failed to get key from Redis.', {
-        cause: err,
-      });
-    }
-  }
-
-  private async _get(key: string): Promise<string | undefined> {
-    return (await this.client.get(key)) ?? undefined;
-  }
-
   async mget(keys: readonly string[]): Promise<(string | undefined)[]> {
     try {
       return await this._mget(keys);
@@ -31,16 +17,26 @@ export class RedisCacheAdapter implements CacheAdapter {
   private async _mget(
     keys: readonly string[],
   ): Promise<(string | undefined)[]> {
+    if (keys.length === 0) return [];
+
     return (await this.client.mget(keys as string[])).map(
       (val) => val ?? undefined,
     );
   }
 
-  async set(key: string, value: string, ttlMs: number): Promise<void> {
+  async mset(
+    entries: readonly [key: string, value: string, ttlMs: number][],
+  ): Promise<void> {
     try {
-      await this._set(key, value, ttlMs);
+      if (entries.length === 1) {
+        const [[key, value, ttlMs]] = entries;
+
+        await this._set(key, value, ttlMs);
+      } else {
+        await this._mset(entries);
+      }
     } catch (err) {
-      throw new Error('Failed to set key in Redis.', {
+      throw new Error('Failed to set keys in Redis.', {
         cause: err,
       });
     }
@@ -50,21 +46,11 @@ export class RedisCacheAdapter implements CacheAdapter {
     await this.client.set(key, value, 'PX', ttlMs);
   }
 
-  async mset(
-    entries: readonly [key: string, value: string, ttlMs: number][],
-  ): Promise<void> {
-    try {
-      await this._mset(entries);
-    } catch (err) {
-      throw new Error('Failed to set keys in Redis.', {
-        cause: err,
-      });
-    }
-  }
-
   private async _mset(
     entries: readonly [key: string, value: string, ttlMs: number][],
   ): Promise<void> {
+    if (entries.length === 0) return;
+
     // MSET key1 value1 key2 value2 ...
     await this.client.mset(...entries.flatMap(([key, value]) => [key, value]));
 
@@ -74,20 +60,6 @@ export class RedisCacheAdapter implements CacheAdapter {
     );
 
     await expireTransaction.exec();
-  }
-
-  async del(key: string): Promise<void> {
-    try {
-      await this._del(key);
-    } catch (err) {
-      throw new Error('Failed to delete key from Redis.', {
-        cause: err,
-      });
-    }
-  }
-
-  private async _del(key: string): Promise<void> {
-    await this.client.del(key);
   }
 
   async mdel(keys: readonly string[]): Promise<void> {
@@ -101,6 +73,8 @@ export class RedisCacheAdapter implements CacheAdapter {
   }
 
   private async _mdel(keys: readonly string[]): Promise<void> {
+    if (keys.length === 0) return;
+
     await this.client.del(...keys);
   }
 
@@ -163,20 +137,6 @@ export class RedisCacheAdapter implements CacheAdapter {
     }
   }
 
-  async has(key: string): Promise<boolean> {
-    try {
-      return await this._has(key);
-    } catch (err) {
-      throw new Error('Failed to check if key exists in Redis.', {
-        cause: err,
-      });
-    }
-  }
-
-  private async _has(key: string): Promise<boolean> {
-    return (await this.client.exists(key)) === 1;
-  }
-
   async mhas(keys: readonly string[]): Promise<boolean> {
     try {
       return await this._mhas(keys);
@@ -188,6 +148,8 @@ export class RedisCacheAdapter implements CacheAdapter {
   }
 
   private async _mhas(keys: readonly string[]): Promise<boolean> {
+    if (keys.length === 0) return true;
+
     return (await this.client.exists(...keys)) === keys.length;
   }
 

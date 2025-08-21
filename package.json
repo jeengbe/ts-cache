@@ -1,6 +1,6 @@
 {
   "name": "@jeengbe/cache",
-  "version": "6.0.0",
+  "version": "6.1.0",
   "description": "A strongly typed caching framework that works with any engine.",
   "keywords": [
     "cache",

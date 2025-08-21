@@ -25,15 +25,9 @@ describe('NoTtlMemoryCacheAdapter', () => {
   it('uses a Map as the cache engine by default', async () => {
     const adapter = new NoTtlMemoryCacheAdapter();
 
-    await adapter.set('foo', 'bar');
+    await adapter.mset([['foo', 'bar', 0]]);
 
-    await expect(adapter.get('foo')).resolves.toEqual('bar');
-  });
-
-  test('get', async () => {
-    await adapter.get('foo');
-
-    expect(mockCacheEngine.get).toHaveBeenCalledWith('foo');
+    await expect(adapter.mget(['foo'])).resolves.toEqual(['bar']);
   });
 
   test('mget', async () => {
@@ -46,12 +40,6 @@ describe('NoTtlMemoryCacheAdapter', () => {
     expect(res).toEqual(['bar', 'qux']);
   });
 
-  test('set', async () => {
-    await adapter.set('foo', 'bar', 1000);
-
-    expect(mockCacheEngine.set).toHaveBeenCalledWith('foo', 'bar');
-  });
-
   test('mset', async () => {
     await adapter.mset([
       ['foo', 'bar', 1000],
@@ -60,12 +48,6 @@ describe('NoTtlMemoryCacheAdapter', () => {
 
     expect(mockCacheEngine.set).toHaveBeenCalledWith('foo', 'bar');
     expect(mockCacheEngine.set).toHaveBeenCalledWith('baz', 'qux');
-  });
-
-  test('del', async () => {
-    await adapter.del('foo');
-
-    expect(mockCacheEngine.delete).toHaveBeenCalledWith('foo');
   });
 
   test('mdel', async () => {
@@ -93,12 +75,6 @@ describe('NoTtlMemoryCacheAdapter', () => {
 
       expect(mockCacheEngine.clear).toHaveBeenCalled();
     });
-  });
-
-  test('has', async () => {
-    await adapter.has('foo');
-
-    expect(mockCacheEngine.has).toHaveBeenCalledWith('foo');
   });
 
   test('mhas', async () => {

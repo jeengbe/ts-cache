@@ -34,21 +34,8 @@ export class MemoryCacheAdapter implements CacheAdapter {
     }
   }
 
-  async get(key: string): Promise<string | undefined> {
-    return this.cache.get(key);
-  }
-
   async mget(keys: readonly string[]): Promise<(string | undefined)[]> {
     return keys.map((k) => this.cache.get(k));
-  }
-
-  async set(key: string, value: string, ttlMs: number): Promise<void> {
-    this.cache.set(key, value, {
-      ttl: ttlMs,
-    });
-
-    // Don't wait for the save to complete
-    void this.saveBackup();
   }
 
   async mset(
@@ -59,13 +46,6 @@ export class MemoryCacheAdapter implements CacheAdapter {
         ttl: ttlMs,
       });
     });
-
-    // Don't wait for the save to complete
-    void this.saveBackup();
-  }
-
-  async del(key: string): Promise<void> {
-    this.cache.delete(key);
 
     // Don't wait for the save to complete
     void this.saveBackup();
@@ -92,10 +72,6 @@ export class MemoryCacheAdapter implements CacheAdapter {
 
     // Don't wait for the save to complete
     void this.saveBackup();
-  }
-
-  async has(key: string): Promise<boolean> {
-    return this.cache.has(key);
   }
 
   async mhas(keys: readonly string[]): Promise<boolean> {

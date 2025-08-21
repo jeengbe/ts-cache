@@ -100,7 +100,7 @@ export class Cache<
   ): Promise<Entries[K] | undefined> {
     const cacheKey = this.getCacheKey(key);
 
-    const res = await this.cacheAdapter.get(cacheKey);
+    const [res] = await this.cacheAdapter.mget([cacheKey]);
 
     if (res === undefined) {
       this.emit('read', key, false, CacheOperation.Get);
@@ -170,7 +170,9 @@ export class Cache<
     const cacheKey = this.getCacheKey(key);
     const ttlMs = ttlToMs(ttl, [value]);
 
-    await this.cacheAdapter.set(cacheKey, this.serialize(value, key), ttlMs);
+    await this.cacheAdapter.mset([
+      [cacheKey, this.serialize(value, key), ttlMs],
+    ]);
   }
 
   /**
@@ -228,7 +230,7 @@ export class Cache<
   async del(key: keyof Entries & string): Promise<void> {
     const cacheKey = this.getCacheKey(key);
 
-    await this.cacheAdapter.del(cacheKey);
+    await this.cacheAdapter.mdel([cacheKey]);
   }
 
   /**
@@ -298,7 +300,7 @@ export class Cache<
   async has(key: keyof Entries & string): Promise<boolean> {
     const cacheKey = this.getCacheKey(key);
 
-    return await this.cacheAdapter.has(cacheKey);
+    return await this.cacheAdapter.mhas([cacheKey]);
   }
 
   /**
@@ -349,14 +351,16 @@ export class Cache<
   ): Promise<Entries[K]> {
     const cacheKey = this.getCacheKey(key);
 
-    const res = await this.cacheAdapter.get(cacheKey);
+    const [res] = await this.cacheAdapter.mget([cacheKey]);
 
     if (res === undefined) {
       this.emit('read', key, false, CacheOperation.Cached);
       const value = await producer();
       const ttlMs = ttlToMs(ttl, [value]);
 
-      await this.cacheAdapter.set(cacheKey, this.serialize(value, key), ttlMs);
+      await this.cacheAdapter.mset([
+        [cacheKey, this.serialize(value, key), ttlMs],
+      ]);
 
       return value;
     }

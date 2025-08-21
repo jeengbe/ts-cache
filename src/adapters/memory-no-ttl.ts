@@ -21,26 +21,14 @@ export class NoTtlMemoryCacheAdapter implements CacheAdapter {
     private readonly cache: NoTtlCacheEngine<string, string> = new Map(),
   ) {}
 
-  async get(key: string): Promise<string | undefined> {
-    return this.cache.get(key);
-  }
-
   async mget(keys: readonly string[]): Promise<(string | undefined)[]> {
     return keys.map((k) => this.cache.get(k));
-  }
-
-  async set(key: string, value: string): Promise<void> {
-    this.cache.set(key, value);
   }
 
   async mset(
     entries: readonly [key: string, value: string, ttlMs: number][],
   ): Promise<void> {
     entries.forEach(([key, value]) => this.cache.set(key, value));
-  }
-
-  async del(key: string): Promise<void> {
-    this.cache.delete(key);
   }
 
   async mdel(keys: readonly string[]): Promise<void> {
@@ -58,10 +46,6 @@ export class NoTtlMemoryCacheAdapter implements CacheAdapter {
     const keysToDelete = micromatch(keys, pattern);
 
     keysToDelete.forEach((key) => this.cache.delete(key));
-  }
-
-  async has(key: string): Promise<boolean> {
-    return this.cache.has(key);
   }
 
   async mhas(keys: readonly string[]): Promise<boolean> {
