@@ -64,7 +64,10 @@ describe('MemoryCacheAdapter', () => {
   });
 
   test('mset', async () => {
-    await adapter.mset(['foo', 'baz'], ['bar', 'qux'], [1000, 2000]);
+    await adapter.mset([
+      ['foo', 'bar', 1000],
+      ['baz', 'qux', 2000],
+    ]);
 
     expect(mockCacheEngine.set).toHaveBeenCalledWith('foo', 'bar', {
       ttl: 1000,
@@ -139,7 +142,10 @@ describe('MemoryCacheAdapter', () => {
   });
 
   it('saves the cache backup after mset', async () => {
-    await adapter.mset(['foo', 'baz'], ['bar', 'qux'], [1000, 2000]);
+    await adapter.mset([
+      ['foo', 'bar', 1000],
+      ['baz', 'qux', 2000],
+    ]);
 
     expect(mockDiskSaver.saveCacheBackup).toHaveBeenCalled();
   });
@@ -191,6 +197,9 @@ describe('MemoryCacheAdapter', () => {
     });
 
     jest.useFakeTimers().setSystemTime(1000);
+
+    // Need to run the constructor again because that's when the backup is loaded
+    new MemoryCacheAdapter(mockCacheEngine, mockDiskSaver);
 
     expect(mockCacheEngine.set).not.toHaveBeenCalled();
 

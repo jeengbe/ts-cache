@@ -7,7 +7,17 @@ const config = {
   coverageReporters: ['lcov', 'text', 'cobertura'],
   verbose: true,
   transform: {
-    '^.+\\.ts?$': '@swc/jest',
+    '^.+\\.ts?$': [
+      '@swc/jest',
+      {
+        jsc: {
+          parser: {
+            syntax: 'typescript',
+            decorators: true,
+          },
+        },
+      },
+    ],
   },
   modulePathIgnorePatterns: ['<rootDir>/dist/'],
   moduleNameMapper: {

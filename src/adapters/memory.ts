@@ -52,13 +52,11 @@ export class MemoryCacheAdapter implements CacheAdapter {
   }
 
   async mset(
-    keys: readonly string[],
-    values: readonly string[],
-    ttlsMs: readonly number[],
+    entries: readonly [key: string, value: string, ttlMs: number][],
   ): Promise<void> {
-    keys.forEach((key, index) => {
-      this.cache.set(key, values[index], {
-        ttl: ttlsMs[index],
+    entries.forEach(([key, value, ttlMs]) => {
+      this.cache.set(key, value, {
+        ttl: ttlMs,
       });
     });
 
@@ -135,6 +133,7 @@ export class MemoryCacheAdapter implements CacheAdapter {
       (cacheBackup, [key, value]) => {
         const ttl = this.cache.getRemainingTTL(key);
 
+        /* istanbul ignore else -- All keys should have a TTL, but just to be sure... */
         if (ttl) {
           const expireAt = now + ttl;
 

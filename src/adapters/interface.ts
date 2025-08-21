@@ -20,9 +20,7 @@ export interface CacheAdapter {
    * Sets the values of all given keys. If a key already exists, its value will be overwritten.
    */
   mset(
-    keys: readonly string[],
-    values: readonly string[],
-    ttlsMs: readonly number[],
+    entries: readonly [key: string, value: string, ttlMs: number][],
   ): Promise<void>;
 
   /**

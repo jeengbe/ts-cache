@@ -44,7 +44,7 @@ describe('RedisCacheAdapter', () => {
   let adapter: CacheAdapter;
 
   beforeAll(async () => {
-    redisContainer = await new RedisContainer().start();
+    redisContainer = await new RedisContainer('redis:8.2').start();
 
     redis = new Redis(redisContainer.getConnectionUrl());
   });
@@ -191,7 +191,10 @@ describe('RedisCacheAdapter', () => {
 
   describe('mset', () => {
     it('sets the values for the given keys', async () => {
-      await adapter.mset(['foo', 'bar'], ['baz', 'qux'], [1000, 2000]);
+      await adapter.mset([
+        ['foo', 'baz', 1000],
+        ['bar', 'qux', 2000],
+      ]);
 
       const value = await redis.mget('foo', 'bar');
 
@@ -199,7 +202,10 @@ describe('RedisCacheAdapter', () => {
     });
 
     it('sets the values with an expiration', async () => {
-      await adapter.mset(['foo', 'bar'], ['baz', 'qux'], [1000, 2000]);
+      await adapter.mset([
+        ['foo', 'bar', 1000],
+        ['baz', 'qux', 2000],
+      ]);
 
       expect(await redis.pttl('foo')).toBeLessThanOrEqual(1000);
       expect(await redis.pttl('bar')).toBeLessThanOrEqual(2000);
@@ -210,7 +216,10 @@ describe('RedisCacheAdapter', () => {
         jest.spyOn(redis, 'mset').mockRejectedValue(new Error());
 
         await expect(
-          adapter.mset(['foo', 'bar'], ['baz', 'qux'], [1000, 2000]),
+          adapter.mset([
+            ['foo', 'bar', 1000],
+            ['baz', 'qux', 2000],
+          ]),
         ).rejects.toThrow('Failed to set keys in Redis.');
       });
 
@@ -219,7 +228,10 @@ describe('RedisCacheAdapter', () => {
         jest.spyOn(redis, 'mset').mockRejectedValue(error);
 
         try {
-          await adapter.mset(['foo', 'bar'], ['baz', 'qux'], [1000, 2000]);
+          await adapter.mset([
+            ['foo', 'bar', 1000],
+            ['baz', 'qux', 2000],
+          ]);
         } catch (err) {
           expect(err).toBeInstanceOf(Error);
           assert(err instanceof Error);
@@ -303,6 +315,10 @@ describe('RedisCacheAdapter', () => {
   });
 
   describe('pdel', () => {
+    it('does nothing if the database is empty', async () => {
+      await adapter.pdel('foo-*');
+    });
+
     it('deletes the values for the given pattern', async () => {
       await redis.mset(
         'foo-1',

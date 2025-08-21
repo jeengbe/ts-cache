@@ -201,15 +201,16 @@ export class Cache<
     ) => keyof Entries & string,
     ttl: TtlExpression<[value: I[number], index: number]>,
   ): Promise<void> {
-    const keys = items.map((item, i) => makeKey(item, i));
-    const cacheKeys = keys.map((k) => this.getCacheKey(k));
-
-    const ttlsMs = items.map((item, i) => ttlToMs(ttl, [item, i]));
-
     await this.cacheAdapter.mset(
-      cacheKeys,
-      items.map((item, i) => this.serialize(item, keys[i])),
-      ttlsMs,
+      items.map((item, i) => {
+        const key = makeKey(item, i);
+
+        return [
+          this.getCacheKey(key),
+          this.serialize(item, makeKey(item, i)),
+          ttlToMs(ttl, [item, i]),
+        ];
+      }),
     );
   }
 
@@ -224,7 +225,7 @@ export class Cache<
    * await resultCache.del(`expensive-${deleteId}`);
    * ```
    */
-  async del<K extends keyof Entries & string>(key: K): Promise<void> {
+  async del(key: keyof Entries & string): Promise<void> {
     const cacheKey = this.getCacheKey(key);
 
     await this.cacheAdapter.del(cacheKey);
@@ -243,9 +244,7 @@ export class Cache<
    * );
    * ```
    */
-  async mdel<K extends readonly (keyof Entries & string)[]>(
-    keys: K,
-  ): Promise<void> {
+  async mdel(keys: readonly (keyof Entries & string)[]): Promise<void> {
     const cacheKeys = keys.map((k) => this.getCacheKey(k));
 
     await this.cacheAdapter.mdel(cacheKeys);
@@ -296,7 +295,7 @@ export class Cache<
    * );
    * ```
    */
-  async has<K extends keyof Entries & string>(key: K): Promise<boolean> {
+  async has(key: keyof Entries & string): Promise<boolean> {
     const cacheKey = this.getCacheKey(key);
 
     return await this.cacheAdapter.has(cacheKey);
@@ -317,9 +316,7 @@ export class Cache<
    * );
    * ```
    */
-  async mhas<K extends readonly (keyof Entries & string)[]>(
-    keys: K,
-  ): Promise<boolean> {
+  async mhas(keys: readonly (keyof Entries & string)[]): Promise<boolean> {
     const cacheKeys = keys.map((k) => this.getCacheKey(k));
 
     return await this.cacheAdapter.mhas(cacheKeys);
@@ -400,7 +397,7 @@ export class Cache<
     producer: (this: void, data: readonly D[]) => Promise<Entries[K][]>,
     ttl: TtlExpression<[value: Entries[K], index: number]>,
   ): Promise<Entries[K][]> {
-    const keys = data.map((data, i) => makeKey(data, i));
+    const keys = data.map((d, i) => makeKey(d, i));
     const cacheKeys = keys.map((k) => this.getCacheKey(k));
 
     const cachedResults = await this.cacheAdapter.mget(cacheKeys);
@@ -434,20 +431,20 @@ export class Cache<
       );
     }
 
-    const toStoreKeys = new Array<string>(producedValues.length);
-    const toStoreValues = new Array<string>(producedValues.length);
-    const toStoreTtls = new Array<number>(producedValues.length);
+    const toStore = new Array<[string, string, number]>(producedValues.length);
 
     producedValues.forEach((value, index) => {
       const returnIndex = missingIndices[index];
 
       toReturn[returnIndex] = value;
-      toStoreKeys[index] = cacheKeys[returnIndex];
-      toStoreValues[index] = this.serialize(value, keys[returnIndex]);
-      toStoreTtls[index] = ttlToMs(ttl, [value, index]);
+      toStore[index] = [
+        cacheKeys[returnIndex],
+        this.serialize(value, keys[returnIndex]),
+        ttlToMs(ttl, [value, index]),
+      ];
     });
 
-    await this.cacheAdapter.mset(toStoreKeys, toStoreValues, toStoreTtls);
+    await this.cacheAdapter.mset(toStore);
 
     return toReturn;
   }
@@ -457,8 +454,8 @@ export class Cache<
    *
    * May return `Infinity` if the key exists but has no TTL set.
    */
-  async getRemainingTtl<K extends keyof Entries & string>(
-    key: K,
+  async getRemainingTtl(
+    key: keyof Entries & string,
   ): Promise<number | undefined> {
     const cacheKey = this.getCacheKey(key);
 

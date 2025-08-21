@@ -34,10 +34,9 @@ export class NoTtlMemoryCacheAdapter implements CacheAdapter {
   }
 
   async mset(
-    keys: readonly string[],
-    values: readonly string[],
+    entries: readonly [key: string, value: string, ttlMs: number][],
   ): Promise<void> {
-    keys.forEach((key, index) => this.cache.set(key, values[index]));
+    entries.forEach(([key, value]) => this.cache.set(key, value));
   }
 
   async del(key: string): Promise<void> {
